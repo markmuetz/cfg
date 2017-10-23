@@ -117,3 +117,5 @@ nnoremap <F10> ^<C-w>gfn
 "
 nnoremap <F5> :edit!<CR>
 nnoremap <S-F5> :tabdo edit! | $
+
+hi Search cterm=NONE ctermfg=black ctermbg=yellow
