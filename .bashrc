@@ -116,5 +116,5 @@ if [ hash git 2>/dev/null] ; then
         echo "dotfiles pull"
     fi
 else
-    alias dotfiles='echo "dotfiles not available: no git'
+    alias dotfiles='echo "dotfiles not available: no git"'
 fi
