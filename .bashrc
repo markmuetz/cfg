@@ -79,8 +79,8 @@ if [ -x /usr/lib/command-not-found ]; then
 	}
 fi
 
-# Make these very large so that history-search-backwards has a lot of cmds.
 if [ $(echo $HOSTNAME|cut -c1-7) != "eslogin" ]; then
+    # Make these very large so that history-search-backwards has a lot of cmds.
     export HISTSIZE=1000000
 fi
 export HISTFILESIZE=1000000000
@@ -100,3 +100,9 @@ alias rdf='echo -ne "\033]0;RDF\007"; ssh -Y mmuetz@login.rdf.ac.uk'
 alias puma='echo -ne "\033]0;PUMA\007"; ssh -Y markmuetz@puma.nerc.ac.uk'
 alias oak='echo -ne "\033]0;OAK\007"; ssh -Y hb865130@oak.reading.ac.uk'
 alias monsoon='echo -ne "\033]0;MONSOON\007"; ssh -Y mamue@lander.monsoon-metoffice.co.uk'
+
+# Computer specific settings at end so can overwrite.
+if [ $HOSTNAME = "puma" ]; then
+    . mosrs-setup-gpg-agent
+    alias dotfiles='/usr/local/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
+fi
