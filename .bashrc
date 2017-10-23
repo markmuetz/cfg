@@ -87,11 +87,10 @@ export HISTFILESIZE=1000000000
 export FIGNORE=.pyc
 export PATH=$PATH:$HOME/bin:$HOME/.local/bin
 
-alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
 alias vim='vim -p'
 alias rgrep='grep -r'
 
-if hash fcm 2>/dev/null; then
+if [ hash fcm 2>/dev/null ]; then
     alias svn='echo "WARNING, using svn not fcm"; svn'
 fi
 
@@ -108,9 +107,14 @@ if [ $HOSTNAME = "puma" ]; then
 fi
 
 # Check dotfiles up-to-date:
-LOCAL_HASH=$(dotfiles rev-parse HEAD)
-REMOTE_HASH=$(git ls-remote https://github.com/markmuetz/dotfiles/|grep HEAD|awk '{print $1}')
-if [ $LOCAL_HASH != $REMOTE_HASH ]; then
-    echo "Dotfiles out of date"
-    echo "dotfiles pull"
+if [ hash git 2>/dev/null] ; then
+    alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
+    LOCAL_HASH=$(dotfiles rev-parse HEAD)
+    REMOTE_HASH=$(git ls-remote https://github.com/markmuetz/dotfiles/|grep HEAD|awk '{print $1}')
+    if [ $LOCAL_HASH != $REMOTE_HASH ]; then
+        echo "Dotfiles out of date"
+        echo "dotfiles pull"
+    fi
+else
+    alias dotfiles='echo "dotfiles not available: no git'
 fi
