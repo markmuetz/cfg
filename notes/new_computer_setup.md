@@ -9,3 +9,4 @@ New Computer Setup
     dotfiles checkout 2>&1 | egrep "+\." | awk {'print $1'}
     # ...
     dotfiles checkout
+    dotfiles config --local status.showUntrackedFiles no
