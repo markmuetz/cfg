@@ -13,8 +13,6 @@ if [ -z "$debian_chroot" ] && [ -r /etc/debian_chroot ]; then
     debian_chroot=$(cat /etc/debian_chroot)
 fi
 
-alias ll='ls -al'
-
 use_color=true
 
 # Set colorful PS1 only on colorful terminals.
@@ -63,16 +61,6 @@ fi
 # Try to keep environment pollution down, EPA loves us.
 unset use_color safe_term match_lhs
 
-# Commented out, don't overwrite xterm -T "title" -n "icontitle" by default.
-# If this is an xterm set the title to user@host:dir
-#case "$TERM" in
-#xterm*|rxvt*)
-#    PROMPT_COMMAND='echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD}\007"'
-#    ;;
-#*)
-#    ;;
-#esac
-
 # enable bash completion in interactive shells
 if [ -f /etc/bash_completion ]; then
     . /etc/bash_completion
@@ -92,20 +80,20 @@ if [ -x /usr/lib/command-not-found ]; then
 fi
 
 # Make these very large so that history-search-backwards has a lot of cmds.
-export HISTSIZE=1000000
+if [ $(echo $HOSTNAME|cut -c1-7) != "eslogin" ]; then
+    export HISTSIZE=1000000
+fi
 export HISTFILESIZE=1000000000
+export FIGNORE=.pyc
+export PATH=$PATH:$HOME/bin:$HOME/.local/bin
 
 alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
 alias vim='vim -p'
-alias lsp='ls --hide="*.pyc"'
 alias rgrep='grep -r'
 
 if hash fcm 2>/dev/null; then
     alias svn='echo "WARNING, using svn not fcm"; svn'
 fi
-
-export FIGNORE=.pyc
-export PATH=$PATH:$HOME/bin:$HOME/.local/bin
 
 alias archer='echo -ne "\033]0;ARCHER\007"; ssh -Y mmuetz@login.archer.ac.uk'
 alias rdf='echo -ne "\033]0;RDF\007"; ssh -Y mmuetz@login.rdf.ac.uk'

@@ -3,7 +3,10 @@
 	name = Mark Muetzelfeldt
 [core]
 	editor = vim
+	pager = less -r
 [push]
 	default = matching
 [credential]
 	helper = cache --timeout=86400
+[color]
+	ui = auto
