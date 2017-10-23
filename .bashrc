@@ -107,7 +107,7 @@ if [ $HOSTNAME = "puma" ]; then
 fi
 
 # Check dotfiles up-to-date:
-if [ hash git 2>/dev/null] ; then
+if [ hash git 2>/dev/null ]; then
     alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
     LOCAL_HASH=$(dotfiles rev-parse HEAD)
     REMOTE_HASH=$(git ls-remote https://github.com/markmuetz/dotfiles/|grep HEAD|awk '{print $1}')
