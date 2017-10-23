@@ -106,3 +106,11 @@ if [ $HOSTNAME = "puma" ]; then
     . mosrs-setup-gpg-agent
     alias dotfiles='/usr/local/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
 fi
+
+# Check dotfiles up-to-date:
+LOCAL_HASH=$(dotfiles rev-parse HEAD)
+REMOTE_HASH=$(git ls-remote https://github.com/markmuetz/dotfiles/|grep HEAD|awk '{print $1}')
+if [ $LOCAL_HASH != $REMOTE_HASH ]; then
+    echo "Dotfiles out of date"
+    echo "dotfiles pull"
+fi
