@@ -1,0 +1,10 @@
+let g:netrw_dirhistmax  =10
+let g:netrw_dirhist_cnt =8
+let g:netrw_dirhist_1='/home/markmuetz/projects/rorycooper/project/rorycooper/settings'
+let g:netrw_dirhist_2='/home/markmuetz/tmp/rorycooper/project/rorycooper/settings'
+let g:netrw_dirhist_3='/home/markmuetz/projects/ir/templates/flatpages'
+let g:netrw_dirhist_4='/home/markmuetz/frameworks/django-trunk/django/contrib/webdesign/templatetags'
+let g:netrw_dirhist_5='/home/markmuetz/projects/django-navtree/navtree/templates'
+let g:netrw_dirhist_6='/home/markmuetz/tmp/django-chronograph/chronograph'
+let g:netrw_dirhist_7='/home/markmuetz/projects/webflow/.hg'
+let g:netrw_dirhist_8='/home/markmuetz/projects/simileweb/site-media/js/flot'

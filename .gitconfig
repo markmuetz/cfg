@@ -1,0 +1,9 @@
+[user]
+	email = markmuetz@gmail.com
+	name = Mark Muetzelfeldt
+[core]
+	editor = vim
+[push]
+	default = matching
+[credential]
+	helper = cache --timeout=86400
