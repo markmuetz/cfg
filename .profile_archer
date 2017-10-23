@@ -1,0 +1,19 @@
+# Setup UM variables
+. /etc/bash.bashrc > /dev/null 2>&1
+
+# Apparently, according to Annette, I should be using the y07 one.
+export UMDIR=/work/n02/n02/hum
+#export UMDIR=/work/y07/y07/umshared
+
+TARGET_MC=cce
+
+VN=8.2
+#VN=10.5
+if test -f $HOME/.umsetvars_$VN; then
+  . $HOME/.umsetvars_$VN
+else
+  . $UMDIR/vn$VN/$TARGET_MC/scripts/.umsetvars_$VN
+fi 
+
+# Rose 
+export PATH=$PATH:$UMDIR/software/bin
