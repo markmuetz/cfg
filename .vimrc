@@ -80,9 +80,14 @@ vmap / y/<C-R>"<CR>
 " map! ;; <Esc> 
 map <S-h> gT
 map <S-l> gt
-nnoremap <silent> <C-S-h> :execute 'silent! tabmove ' . (tabpagenr()-2)<CR>
-nnoremap <silent> <C-S-l> :execute 'silent! tabmove ' . tabpagenr()<CR>
-
+nnoremap <silent> <C-h> :execute 'silent! tabmove ' . (tabpagenr()-2)<CR>
+" nnoremap <C-h> :execute 'tabmove ' . (tabpagenr()-2)<CR>
+nnoremap <silent> <C-l> :execute 'silent! tabmove ' . (tabpagenr()+1)<CR>
+" nnoremap <C-l> :execute 'tabmove ' . (tabpagenr()+1)<CR>
+" map <C-S-h> gT
+" map <C-S-l> gt
+" map <S-l> :cnext<CR>
+" map <S-h> :cprev<CR>
 " Awesome plugin support
 map <F2> :NERDTreeToggle<CR>
 " Ignore *.pyc in nerdtree:
@@ -110,12 +115,20 @@ nnoremap <silent><F12> <C-w><C-]><C-w>T
 " Easy search for word under cursor.
 nnoremap <F8> :grep! "\<<cword>\>" . -r<CR>
 " Search and store results in a new tab, also selects searched for word.
-nnoremap <F9> *N:execute 'tabnew <bar> r ! grep -r --exclude=tags --exclude=\*.swp '.expand("<cword>")<CR>
+nnoremap <F9> *N:execute 'tabnew <bar> r ! grep -ir --exclude=tags --exclude=\*.swp '.expand("<cword>")<CR><CR>
 " Open the filename (at start of line), jump to first instance of word
-nnoremap <F10> ^<C-w>gfn
+nnoremap <S-F9> ^<C-w>gfn
+nnoremap <C-S-F9> ^<C-w>gfngT:q!<CR>
 " nnoremap <C-F10> :q!<CR>^<C-w>gfn
 "
 nnoremap <F5> :edit!<CR>
-nnoremap <S-F5> :tabdo edit! | $
+" Not working properly.
+nnoremap <S-F5> :tabdo edit! | $ 
+
+set pastetoggle=<F6>
+
+:autocmd BufRead,BufNewFile *.conf setf dosini
+set tw=0
 
 hi Search cterm=NONE ctermfg=black ctermbg=yellow
+set tabpagemax=40

@@ -30,32 +30,32 @@ match_lhs=""
 [[ $'\n'${match_lhs} == *$'\n'"TERM "${safe_term}* ]] && use_color=true
 
 if ${use_color} ; then
-        # Enable colors for ls, etc.  Prefer ~/.dir_colors #64489
-        if type -P dircolors >/dev/null ; then
-                if [[ -f ~/.dir_colors ]] ; then
-                        eval $(dircolors -b ~/.dir_colors)
-                elif [[ -f /etc/DIR_COLORS ]] ; then
-                        eval $(dircolors -b /etc/DIR_COLORS)
-		else
-			eval $(dircolors)
-                fi
-        fi
-
-        if [[ ${EUID} == 0 ]] ; then
-                PS1='${debian_chroot:+($debian_chroot)}\[\033[01;31m\]\h\[\033[01;34m\] \W \$\[\033[00m\] '
+    # Enable colors for ls, etc.  Prefer ~/.dir_colors #64489
+    if type -P dircolors >/dev/null ; then
+        if [[ -f ~/.dir_colors ]] ; then
+            eval $(dircolors -b ~/.dir_colors)
+        elif [[ -f /etc/DIR_COLORS ]] ; then
+            eval $(dircolors -b /etc/DIR_COLORS)
         else
-                PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[01;34m\] \w \$\[\033[00m\] '
+            eval $(dircolors)
         fi
+    fi
 
-        alias ls='ls --color=auto'
-        alias grep='grep --colour=auto'
+    if [[ ${EUID} == 0 ]] ; then
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;31m\]\h\[\033[01;34m\] \W \$\[\033[00m\] '
+    else
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[01;34m\] \w \$\[\033[00m\] '
+    fi
+
+    alias ls='ls --color=auto'
+    alias grep='grep --colour=auto'
 else
-        if [[ ${EUID} == 0 ]] ; then
-                # show root@ when we don't have colors
-                PS1='\u@\h \W \$ '
-        else
-                PS1='\u@\h \w \$ '
-        fi
+    if [[ ${EUID} == 0 ]] ; then
+        # show root@ when we don't have colors
+        PS1='\u@\h \W \$ '
+    else
+        PS1='\u@\h \w \$ '
+    fi
 fi
 
 # Try to keep environment pollution down, EPA loves us.
@@ -68,15 +68,15 @@ fi
 
 # if the command-not-found package is installed, use it
 if [ -x /usr/lib/command-not-found ]; then
-	function command_not_found_handle {
-	        # check because c-n-f could've been removed in the meantime
-                if [ -x /usr/lib/command-not-found ]; then
-		   /usr/bin/python /usr/lib/command-not-found -- $1
-                   return $?
-		else
-		   return 127
-		fi
-	}
+    function command_not_found_handle {
+        # check because c-n-f could've been removed in the meantime
+        if [ -x /usr/lib/command-not-found ]; then
+            /usr/bin/python /usr/lib/command-not-found -- $1
+            return $?
+        else
+            return 127
+        fi
+    }
 fi
 
 if [ $(echo $HOSTNAME|cut -c1-7) != "eslogin" ]; then
@@ -88,7 +88,9 @@ export FIGNORE=.pyc
 export PATH=$PATH:$HOME/bin:$HOME/.local/bin
 
 alias vim='vim -p'
-alias rgrep='grep -r'
+if ! hash rgrep 2>/dev/null; then
+    alias rgrep='grep -r'
+fi
 
 if hash fcm 2>/dev/null; then
     alias svn='echo "WARNING, using svn not fcm"; svn'
@@ -103,18 +105,28 @@ alias monsoon='echo -ne "\033]0;MONSOON\007"; ssh -Y mamue@lander.monsoon-metoff
 # Computer specific settings at end so can overwrite.
 if [ $HOSTNAME = "puma" ]; then
     . mosrs-setup-gpg-agent
-    alias dotfiles='/usr/local/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
+    # N.B. different git location.
+    # alias dotfiles='/usr/local/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
 fi
+if [ $HOSTNAME = "breakeven" ]; then
+    . $HOME/.argcomplete.rc
+    export OMNIUM_ANALYZERS_PATH=~/projects/scaffold_analysis
+    export PATH="/home/markmuetz/anaconda2/bin:$PATH"
+    export PATH="/home/markmuetz/opt/fcm-2016.05.1/bin:/home/markmuetz/opt/cylc-6.10.2/bin:/home/markmuetz/opt/rose-master/bin:$PATH"
+fi 
 
-# Check dotfiles up-to-date:
-if hash git 2>/dev/null; then
-    alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
+function dotfiles-check () {
     LOCAL_HASH=$(dotfiles rev-parse HEAD)
     REMOTE_HASH=$(git ls-remote https://github.com/markmuetz/dotfiles/|grep HEAD|awk '{print $1}')
     if [ $LOCAL_HASH != $REMOTE_HASH ]; then
         echo "Dotfiles out of date"
         echo "dotfiles pull"
     fi
+}
+
+# Check git exists:
+if hash git 2>/dev/null; then
+    alias dotfiles='git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
 else
     alias dotfiles='echo "dotfiles not available: no git"'
 fi
