@@ -116,13 +116,16 @@ if [ $HOSTNAME = "breakeven" ]; then
 fi 
 
 function dotfiles-check () {
+    DOTFILES_REPO=https://github.com/markmuetz/dotfiles/
     LOCAL_HASH=$(dotfiles rev-parse HEAD)
-    REMOTE_HASH=$(git ls-remote https://github.com/markmuetz/dotfiles/|grep HEAD|awk '{print $1}')
+    REMOTE_HASH=$(git ls-remote $DOTFILES_REPO|grep HEAD|awk '{print $1}')
     if [ $LOCAL_HASH != $REMOTE_HASH ]; then
-        echo "Dotfiles out-of-date"
-        echo "dotfiles pull"
+        echo "Dotfiles out-of-date with $DOTFILES_REPO"
     else
-        echo "Dotfiles up-to-date"
+        echo "Dotfiles up-to-date with $DOTFILES_REPO"
+    fi
+    if dotfiles status --porcelain ; then
+        echo "There are uncommitted changes"
     fi
 }
 
