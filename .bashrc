@@ -124,7 +124,7 @@ function dotfiles-check () {
     else
         echo "Dotfiles up-to-date with $DOTFILES_REPO"
     fi
-    if dotfiles status --porcelain ; then
+    if [[ `dotfiles status --porcelain` ]]; then
         echo "There are uncommitted changes"
     fi
 }
