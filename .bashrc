@@ -119,8 +119,10 @@ function dotfiles-check () {
     LOCAL_HASH=$(dotfiles rev-parse HEAD)
     REMOTE_HASH=$(git ls-remote https://github.com/markmuetz/dotfiles/|grep HEAD|awk '{print $1}')
     if [ $LOCAL_HASH != $REMOTE_HASH ]; then
-        echo "Dotfiles out of date"
+        echo "Dotfiles out-of-date"
         echo "dotfiles pull"
+    else
+        echo "Dotfiles up-to-date"
     fi
 }
 
