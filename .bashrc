@@ -119,23 +119,23 @@ if [ $HOSTNAME = "exppostproc01.monsoon-metoffice.co.uk" ]; then
 fi
 
 
-function dotfiles-check () {
-    DOTFILES_REPO=https://github.com/markmuetz/dotfiles/
-    LOCAL_HASH=$(dotfiles rev-parse HEAD)
+function cfg-check () {
+    DOTFILES_REPO=https://github.com/markmuetz/cfg/
+    LOCAL_HASH=$(cfg rev-parse HEAD)
     REMOTE_HASH=$(git ls-remote $DOTFILES_REPO|grep HEAD|awk '{print $1}')
     if [ $LOCAL_HASH != $REMOTE_HASH ]; then
         echo "Dotfiles out-of-date with $DOTFILES_REPO"
     else
         echo "Dotfiles up-to-date with $DOTFILES_REPO"
     fi
-    if [[ `dotfiles status --porcelain` ]]; then
+    if [[ `cfg status --porcelain` ]]; then
         echo "There are uncommitted changes"
     fi
 }
 
 # Check git exists:
 if hash git 2>/dev/null; then
-    alias dotfiles='git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
+    alias cfg='git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 else
-    alias dotfiles='echo "dotfiles not available: no git"'
+    alias cfg='echo "cfg not available: no git"'
 fi
