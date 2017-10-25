@@ -1,0 +1,2 @@
+#!/bin/bash
+sync_server hb865130@oak.reading.ac.uk $@

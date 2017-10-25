@@ -1,0 +1,32 @@
+#!/bin/bash
+start_dir=`pwd`
+source_path=$start_dir/$1
+
+if [ ! -f $HOME/.compname ]; then
+    echo "$HOME/.compname must be set"
+    exit
+fi
+
+if [ $# -eq 1 ]; then
+    echo "No arguments supplied"
+    exit
+fi
+
+server=$1
+compname=`cat $HOME/.compname`
+mirror_name=${compname}_mirror
+
+for arg in "${@:2}"; do
+    source_path=$start_dir/$arg
+    if [ ! -e $source_path ]; then
+        echo $source_path does not exist
+        exit
+    fi
+    rel_path=`python -c "import os.path; print os.path.relpath('$source_path', '$HOME')"`
+
+    # dot is important. It tells the relative rsync command (-R) where to take
+    rsync_args="$rsync_args $HOME/./$rel_path"
+done
+
+rsync -Rav $rsync_args $server:$mirror_name/
+

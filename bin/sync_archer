@@ -1,0 +1,2 @@
+#!/bin/bash
+sync_server mmuetz@login.archer.ac.uk $@
