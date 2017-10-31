@@ -104,7 +104,8 @@ augroup filetype
 augroup END
 
 " Fortran files:
-autocmd FileType fortran :setlocal sw=2 ts=2 sts=2 " Two spaces for fortran files 
+" Two spaces for fortran files and ignore case on search.
+autocmd FileType fortran :setlocal sw=2 ts=2 sts=2 ic
 
 " Tags options.
 " Recurse up looking for tags.
