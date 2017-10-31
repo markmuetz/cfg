@@ -116,6 +116,7 @@ if [ $HOSTNAME = "breakeven" ]; then
 fi 
 if [ $HOSTNAME = "exppostproc01.monsoon-metoffice.co.uk" ]; then
     export OMNIUM_ANALYZERS_PATH=~/projects/scaffold_analysis:~/projects/cosar_analysis
+    . mosrs-setup-gpg-agent
 fi
 
 
