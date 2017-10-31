@@ -116,9 +116,10 @@ if [ $HOSTNAME = "breakeven" ]; then
 fi 
 if [ $HOSTNAME = "exppostproc01.monsoon-metoffice.co.uk" ]; then
     export OMNIUM_ANALYZERS_PATH=~/projects/scaffold_analysis:~/projects/cosar_analysis
+fi
+if [ $HOSTNAME = "exvmsrose.monsoon-metoffice.co.uk" ]; then
     . mosrs-setup-gpg-agent
 fi
-
 
 function cfg-check () {
     DOTFILES_REPO=https://github.com/markmuetz/cfg/
