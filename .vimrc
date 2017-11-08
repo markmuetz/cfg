@@ -129,3 +129,6 @@ set tw=0
 
 hi Search cterm=NONE ctermfg=black ctermbg=yellow
 set tabpagemax=40
+
+" Visual select will show how many chars selected.
+set sc
