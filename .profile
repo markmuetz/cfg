@@ -24,3 +24,18 @@ fi
 if [ -d "$HOME/bin" ] ; then
     PATH="$HOME/bin:$PATH"
 fi
+
+if [ $(echo $HOSTNAME) = "puma" ]; then
+    # --- Set ENV = the file holding KSH specific commands
+    ENV=$HOME/.kshrc ; export ENV
+
+    ### PLEASE ADD YOUR OWN CODE BELOW THIS LINE ###
+
+    # ssh-agent setup
+    . $HOME/.ssh/ssh-setup
+
+    # required for Rose UM suites
+    export UMDIR=/home/um
+fi
+
+
