@@ -81,13 +81,9 @@ vmap / y/<C-R>"<CR>
 map <S-h> gT
 map <S-l> gt
 nnoremap <silent> <C-h> :execute 'silent! tabmove ' . (tabpagenr()-2)<CR>
-" nnoremap <C-h> :execute 'tabmove ' . (tabpagenr()-2)<CR>
-nnoremap <silent> <C-l> :execute 'silent! tabmove ' . (tabpagenr()+1)<CR>
-" nnoremap <C-l> :execute 'tabmove ' . (tabpagenr()+1)<CR>
-" map <C-S-h> gT
-" map <C-S-l> gt
-" map <S-l> :cnext<CR>
-" map <S-h> :cprev<CR>
+" Is this right on all computers? Try +1 if not.
+nnoremap <silent> <C-l> :execute 'silent! tabmove ' . (tabpagenr())<CR>
+
 " Awesome plugin support
 map <F2> :NERDTreeToggle<CR>
 " Ignore *.pyc in nerdtree:
@@ -104,7 +100,8 @@ augroup filetype
 augroup END
 
 " Fortran files:
-autocmd FileType fortran :setlocal sw=2 ts=2 sts=2 " Two spaces for fortran files 
+" Two spaces for fortran files and ignore case on search.
+autocmd FileType fortran :setlocal sw=2 ts=2 sts=2 ic
 
 " Tags options.
 " Recurse up looking for tags.
@@ -132,3 +129,6 @@ set tw=0
 
 hi Search cterm=NONE ctermfg=black ctermbg=yellow
 set tabpagemax=40
+
+" Visual select will show how many chars selected.
+set sc
