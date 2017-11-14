@@ -8,7 +8,7 @@
 # for ssh logins, install and configure the libpam-umask package.
 #umask 022
 
-if [ $(echo $HOSTNAME|cut -c1-7) = "eslogin" ]; then
+if [ $(echo $HOSTNAME|cut -c1-7) = "eslogin" ] || [ $(echo $HOSTNAME|cut -c1-6) = "esPP00" ] ; then
     source ~/.profile_archer
 fi
 
