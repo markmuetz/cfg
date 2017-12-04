@@ -1,0 +1,5 @@
+ssh met-cluster
+qrsh -l shared -P shared
+bash
+source .setup_anaconda.sh
+# setup canopy
