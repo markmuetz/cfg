@@ -27,10 +27,11 @@ Problems
 --------
 
 * pyshp not installed correctly: `import shapefile` does not work on `import iris`
-* `readline` not found, to fix (downgrades to python 3.6.2):
+* `readline` not found, to fix (downgrades to python 3.6.2, destroyed when something else upgrades python):
 
-    conda remove --force python
-    conda install -c anaconda python
+
+    * `conda remove --force python`
+    * `conda install -c anaconda python`
 
 Solutions
 ---------
