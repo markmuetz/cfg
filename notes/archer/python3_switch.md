@@ -31,3 +31,9 @@ Problems
 
     conda remove --force python
     conda install -c anaconda python
+
+Solutions
+---------
+
+Tried: https://github.com/ContinuumIO/anaconda-issues/issues/152#issuecomment-225214743
+to fix readline problem. Didn't work.
