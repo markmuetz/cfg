@@ -9,4 +9,5 @@
 Control-k: menu-complete-backward
 Control-j: menu-complete
 set show-all-if-ambiguous on
+set colored-stats on
 
