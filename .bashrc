@@ -103,6 +103,10 @@ alias oak='echo -ne "\033]0;OAK\007"; ssh -Y hb865130@oak.reading.ac.uk'
 alias monsoon='echo -ne "\033]0;MONSOON\007"; ssh -Y mamue@lander.monsoon-metoffice.co.uk'
 
 # Computer specific settings at end so can overwrite.
+if [ $(echo $HOSTNAME|cut -c1-7) = "eslogin" ] || [ $(echo $HOSTNAME|cut -c1-6) = "esPP00" ] ; then
+    alias qserial='qsub -IVl select=serial=true:ncpus=1,walltime=10:0:0 -A n02-REVCON'
+fi
+
 if [ $HOSTNAME = "puma" ]; then
     . mosrs-setup-gpg-agent
     # N.B. different git location.
