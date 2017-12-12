@@ -111,6 +111,7 @@ fi
 if [ $HOSTNAME = "zerogravitas" ]; then
     export PATH="/home/markmuetz/opt/MO/fcm-2016.12.0/bin:/home/markmuetz/opt/MO/cylc/bin:/home/markmuetz/opt/MO/rose-2017.01.0/bin:$PATH"
     # export PATH="/home/markmuetz/anaconda2/bin:$PATH"
+    export OMNIUM_ANALYZERS_PATH=~/projects/scaffold_analysis:~/projects/cosar_analysis
 fi
 
 if [ $HOSTNAME = "breakeven" ]; then
