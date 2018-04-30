@@ -121,8 +121,8 @@ fi
 
 if [ $HOSTNAME = "breakeven" ]; then
     . $HOME/.argcomplete.rc
-    export OMNIUM_ANALYZERS_PATH=~/projects/scaffold_analysis:~/projects/cosar_analysis
-    export PATH="/home/markmuetz/anaconda2/bin:$PATH"
+    export OMNIUM_ANALYSER_PKGS=scaffold:cosar
+    # export PATH="/home/markmuetz/anaconda2/bin:$PATH"
     export PATH="/home/markmuetz/opt/fcm-2016.05.1/bin:/home/markmuetz/opt/cylc-6.10.2/bin:/home/markmuetz/opt/rose-master/bin:$PATH"
 fi 
 if [ $HOSTNAME = "exppostproc01.monsoon-metoffice.co.uk" ]; then
