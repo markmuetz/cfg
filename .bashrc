@@ -105,7 +105,7 @@ alias monsoon='echo -ne "\033]0;MONSOON\007"; ssh -Y mamue@lander.monsoon-metoff
 # Computer specific settings at end so can overwrite.
 if [ $(echo $HOSTNAME|cut -c1-7) = "eslogin" ] || [ $(echo $HOSTNAME|cut -c1-6) = "esPP00" ] ; then
     alias qserial='qsub -IVl select=serial=true:ncpus=1,walltime=10:0:0 -A n02-REVCON'
-    export OMNIUM_ANALYZERS_PATH=~/work/scaffold_analysis:~/work/cosar_analysis
+    export OMNIUM_ANALYSER_PKGS=scaffold:cosar
 fi
 
 if [ $HOSTNAME = "puma" ]; then
@@ -116,7 +116,7 @@ fi
 if [ $HOSTNAME = "zerogravitas" ]; then
     export PATH="/home/markmuetz/opt/MO/fcm-2016.12.0/bin:/home/markmuetz/opt/MO/cylc/bin:/home/markmuetz/opt/MO/rose-2017.01.0/bin:$PATH"
     # export PATH="/home/markmuetz/anaconda2/bin:$PATH"
-    export OMNIUM_ANALYZERS_PATH=~/projects/scaffold_analysis:~/projects/cosar_analysis
+    export OMNIUM_ANALYSER_PKGS=scaffold:cosar
 fi
 
 if [ $HOSTNAME = "breakeven" ]; then
@@ -126,7 +126,7 @@ if [ $HOSTNAME = "breakeven" ]; then
     export PATH="/home/markmuetz/opt/fcm-2016.05.1/bin:/home/markmuetz/opt/cylc-6.10.2/bin:/home/markmuetz/opt/rose-master/bin:$PATH"
 fi 
 if [ $HOSTNAME = "exppostproc01.monsoon-metoffice.co.uk" ]; then
-    export OMNIUM_ANALYZERS_PATH=~/projects/scaffold_analysis:~/projects/cosar_analysis
+    export OMNIUM_ANALYSER_PKGS=scaffold:cosar
 fi
 if [ $HOSTNAME = "exvmsrose.monsoon-metoffice.co.uk" ]; then
     . mosrs-setup-gpg-agent
