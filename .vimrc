@@ -132,3 +132,6 @@ set tabpagemax=40
 
 " Visual select will show how many chars selected.
 set sc
+
+" stop vim autowrapping.
+set textwidth=0 wrapmargin=0
