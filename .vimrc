@@ -102,6 +102,10 @@ augroup END
 " Fortran files:
 " Two spaces for fortran files and ignore case on search.
 autocmd FileType fortran :setlocal sw=2 ts=2 sts=2 ic
+let fortran_free_source=1
+let fortran_have_tabs=1
+let fortran_more_precise=1
+let fortran_do_enddo=1
 
 " Tags options.
 " Recurse up looking for tags.
