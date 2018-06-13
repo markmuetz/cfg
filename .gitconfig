@@ -12,3 +12,5 @@
 	ui = auto
 [http]
 [http]
+[alias]
+	logadog = log --all --decorate --oneline --graph
