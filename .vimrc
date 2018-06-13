@@ -99,6 +99,10 @@ augroup filetype
   au! BufRead,BufnewFile rose-*.conf,rose-*.info set filetype=rose-conf
 augroup END
 
+augroup filetype
+  au! BufRead,BufnewFile *.tex set filetype=tex
+augroup END
+
 " Fortran files:
 " Two spaces for fortran files and ignore case on search.
 autocmd FileType fortran :setlocal sw=2 ts=2 sts=2 ic
