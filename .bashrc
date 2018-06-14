@@ -104,8 +104,12 @@ alias monsoon='echo -ne "\033]0;MONSOON\007"; ssh -Y mamue@lander.monsoon-metoff
 
 # Computer specific settings at end so can overwrite.
 if [ $(echo $HOSTNAME|cut -c1-7) = "eslogin" ] || [ $(echo $HOSTNAME|cut -c1-6) = "esPP00" ] ; then
+    # Interactive shells on ARCHER. 
     alias qserial='qsub -IVl select=serial=true:ncpus=1,walltime=10:0:0 -A n02-REVCON'
+    # N.B.
+    alias qshort='echo "REM aprun"; qsub -q short -IVl select=1,walltime=0:20:0 -A n02-REVCON'
     export OMNIUM_ANALYSER_PKGS=scaffold:cosar
+    export WORK=/work/n02/n02/mmuetz
 fi
 
 if [ $HOSTNAME = "puma" ]; then
