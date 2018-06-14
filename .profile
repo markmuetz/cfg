@@ -9,7 +9,7 @@
 #umask 022
 
 # Setup UM variables
-. /etc/bash.bashrc > /dev/null 2>&1
+# . /etc/bash.bashrc > /dev/null 2>&1
 
 if [ $(echo $HOSTNAME|cut -c1-7) = "eslogin" ] || [ $(echo $HOSTNAME|cut -c1-6) = "esPP00" ] ; then
     source ~/.profile_archer
