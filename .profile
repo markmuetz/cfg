@@ -51,7 +51,7 @@ VN=8.2
 #VN=10.5
 if test -f $HOME/.umsetvars_$VN; then
   . $HOME/.umsetvars_$VN
-else
+elif test -f $UMDIR/vn$VN/$TARGET_MC/scripts/.umsetvars_$VN; then
   . $UMDIR/vn$VN/$TARGET_MC/scripts/.umsetvars_$VN
 fi 
 
