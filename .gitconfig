@@ -10,3 +10,7 @@
 	helper = cache --timeout=86400
 [color]
 	ui = auto
+[http]
+[http]
+[alias]
+	logadog = log --all --decorate --oneline --graph
