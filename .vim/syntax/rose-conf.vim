@@ -43,6 +43,8 @@ syn match rosesection '^\[[^!].*\]$'
 syn region roseignoredoption start='^!!\?\(\w\|-\).*$' end='^\ze\S'
 syn match roserhsvaluecont '^\s\s*\w.*$'
 syn match roserhsvalue '^[^=]*=\zs.*$'
+syn match true_val '[Tt]rue'
+syn match false_val '[Ff]alse'
 
 hi def link roselinecomment Comment
 hi def link roseignoredsection PreProc
@@ -51,3 +53,5 @@ hi def link roseignoredoption PreProc
 hi def link roserhsvaluecont String
 hi def link roserhsvalue String
 hi def link roseequals Special
+hi def true_val ctermbg=Green ctermfg=Black
+hi def false_val ctermbg=Red ctermfg=Black
