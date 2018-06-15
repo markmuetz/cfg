@@ -101,6 +101,7 @@ alias rdf='echo -ne "\033]0;RDF\007"; ssh -Y mmuetz@login.rdf.ac.uk'
 alias puma='echo -ne "\033]0;PUMA\007"; ssh -Y markmuetz@puma.nerc.ac.uk'
 alias oak='echo -ne "\033]0;OAK\007"; ssh -Y hb865130@oak.reading.ac.uk'
 alias monsoon='echo -ne "\033]0;MONSOON\007"; ssh -Y mamue@lander.monsoon-metoffice.co.uk'
+alias lsf='readlink -f'
 
 # Computer specific settings at end so can overwrite.
 if [ $(echo $HOSTNAME|cut -c1-7) = "eslogin" ] || [ $(echo $HOSTNAME|cut -c1-6) = "esPP00" ] ; then
