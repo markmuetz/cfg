@@ -122,6 +122,8 @@ fi
 if [ $HOSTNAME = "zerogravitas" ]; then
     export PATH="/home/markmuetz/opt/MO/fcm-2016.12.0/bin:/home/markmuetz/opt/MO/cylc/bin:/home/markmuetz/opt/MO/rose-2017.01.0/bin:/home/markmuetz/opt/intel/bin:$PATH"
     export OMNIUM_ANALYSER_PKGS=scaffold:cosar
+    export COSAR_SUITE_UAU197_DIR=/home/markmuetz/omnium_test_suites/cosar_test_suite/u-au197
+    export SCAFFOLD_SUITE_UAN388_DIR=/home/markmuetz/omnium_test_suites/scaffold_test_suite/u-an388
     source $HOME/.anaconda3_setup.sh
 fi
 
