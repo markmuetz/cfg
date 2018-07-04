@@ -112,6 +112,8 @@ if [ $(echo $HOSTNAME|cut -c1-7) = "eslogin" ] || [ $(echo $HOSTNAME|cut -c1-6) 
     alias qshort='echo "REM aprun"; qsub -q short -IVl select=1,walltime=0:20:0 -A n02-REVCON'
     export OMNIUM_ANALYSER_PKGS=scaffold:cosar
     export WORK=/work/n02/n02/mmuetz
+    export COSAR_SUITE_UAU197_DIR=/home/n02/n02/mmuetz/work/omnium_test_suites/cosar_test_suite/u-au197
+    export SCAFFOLD_SUITE_UAN388_DIR=/home/n02/n02/mmuetz/work/omnium_test_suites/scaffold_test_suite/u-an388
 fi
 
 if [ $HOSTNAME = "puma" ]; then
