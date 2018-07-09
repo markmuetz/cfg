@@ -1,0 +1,11 @@
+#!/bin/bash
+
+for fullfile in "$@"
+do
+    filename=$(basename -- "$fullfile")
+    extension="${filename##*.}"
+    filename="${filename%.*}"
+    outfile="${filename}_cropped.${extension}"
+    echo "Creating cropped file: ${outfile}"
+    convert -trim $fullfile $outfile
+done
