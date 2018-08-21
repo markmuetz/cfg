@@ -132,7 +132,8 @@ fi
 if [ $HOSTNAME = "breakeven" ]; then
     . $HOME/.argcomplete.rc
     export PATH="/home/markmuetz/opt/fcm-2016.05.1/bin:/home/markmuetz/opt/cylc-6.10.2/bin:/home/markmuetz/opt/rose-master/bin:$PATH"
-    export OMNIUM_ANALYSIS_PKGS=scaffold:cosar
+    # export OMNIUM_ANALYSIS_PKGS=scaffold:cosar
+    export OMNIUM_ANALYSIS_PKGS=cosar
     source $HOME/.anaconda3_setup.sh
 fi 
 if [ $HOSTNAME = "exppostproc01.monsoon-metoffice.co.uk" ]; then
