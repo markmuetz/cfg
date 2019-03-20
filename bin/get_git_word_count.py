@@ -21,6 +21,8 @@ if __name__ == '__main__':
     orig_dir = os.getcwd()
     os.chdir(sys.argv[1])
 
+    assert sp.check_output('git branch'.split()).decode().strip() == '* master'
+
     rev_list = sp.check_output('git rev-list master'.split()).decode().split('\n')
 
     dates = []
