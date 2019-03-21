@@ -110,7 +110,7 @@ if [ $(echo $HOSTNAME|cut -c1-7) = "eslogin" ] || [ $(echo $HOSTNAME|cut -c1-6) 
     alias qserial='qsub -IVl select=serial=true:ncpus=1,walltime=10:0:0 -A n02-REVCON'
     # N.B.
     alias qshort='echo "REM aprun"; qsub -q short -IVl select=1,walltime=0:20:0 -A n02-REVCON'
-    export OMNIUM_ANALYSIS_PKGS=scaffold:cosar
+    # export OMNIUM_ANALYSIS_PKGS=scaffold:cosar
     export WORK=/work/n02/n02/mmuetz
     export COSAR_SUITE_UAU197_DIR=/home/n02/n02/mmuetz/work/omnium_test_suites/cosar_test_suite/u-au197
     export SCAFFOLD_SUITE_UAN388_DIR=/home/n02/n02/mmuetz/work/omnium_test_suites/scaffold_test_suite/u-an388
@@ -123,7 +123,7 @@ if [ $HOSTNAME = "puma" ]; then
 fi
 if [ $HOSTNAME = "zerogravitas" ]; then
     export PATH="/home/markmuetz/opt/MO/fcm-2016.12.0/bin:/home/markmuetz/opt/MO/cylc/bin:/home/markmuetz/opt/MO/rose-2017.01.0/bin:/home/markmuetz/opt/intel/bin:$PATH"
-    export OMNIUM_ANALYSIS_PKGS=scaffold:cosar
+    # export OMNIUM_ANALYSIS_PKGS=scaffold:cosar
     export COSAR_SUITE_UAU197_DIR=/home/markmuetz/omnium_test_suites/cosar_test_suite/u-au197
     export SCAFFOLD_SUITE_UAN388_DIR=/home/markmuetz/omnium_test_suites/scaffold_test_suite/u-an388
     source $HOME/.anaconda3_setup.sh
