@@ -143,3 +143,5 @@ set sc
 
 " stop vim autowrapping.
 set textwidth=0 wrapmargin=0
+
+set laststatus=2
