@@ -89,6 +89,7 @@ export FIGNORE=.pyc
 export PATH=$PATH:$HOME/bin:$HOME/.local/bin
 
 alias vim='vim -p'
+alias nvim='nvim -p'
 if ! hash rgrep 2>/dev/null; then
     alias rgrep='grep -r'
 fi
