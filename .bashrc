@@ -126,6 +126,7 @@ if [ $HOSTNAME = "zerogravitas" ]; then
     # export OMNIUM_ANALYSIS_PKGS=scaffold:cosar
     export COSAR_SUITE_UAU197_DIR=/home/markmuetz/omnium_test_suites/cosar_test_suite/u-au197
     export SCAFFOLD_SUITE_UAN388_DIR=/home/markmuetz/omnium_test_suites/scaffold_test_suite/u-an388
+    export ube530=/home/markmuetz/mirrors/archer/nerc/um11.0_runs/archive/u-be530/
     source $HOME/.anaconda3_setup.sh
 fi
 
@@ -134,6 +135,7 @@ if [ $HOSTNAME = "breakeven" ]; then
     export PATH="/home/markmuetz/opt/fcm-2016.05.1/bin:/home/markmuetz/opt/cylc-6.10.2/bin:/home/markmuetz/opt/rose-master/bin:$PATH"
     # export OMNIUM_ANALYSIS_PKGS=scaffold:cosar
     export OMNIUM_ANALYSIS_PKGS=cosar
+    export ube530=/home/markmuetz/mirrors/archer/nerc/um11.0_runs/archive/u-be530/
     source $HOME/.anaconda3_setup.sh
 fi 
 if [ $HOSTNAME = "exppostproc01.monsoon-metoffice.co.uk" ]; then
