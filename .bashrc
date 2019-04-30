@@ -115,6 +115,7 @@ if [ $(echo $HOSTNAME|cut -c1-7) = "eslogin" ] || [ $(echo $HOSTNAME|cut -c1-6) 
     export WORK=/work/n02/n02/mmuetz
     export COSAR_SUITE_UAU197_DIR=/home/n02/n02/mmuetz/work/omnium_test_suites/cosar_test_suite/u-au197
     export SCAFFOLD_SUITE_UAN388_DIR=/home/n02/n02/mmuetz/work/omnium_test_suites/scaffold_test_suite/u-an388
+    export ube530=/home/n02/n02/mmuetz/nerc/um11.0_runs/archive/u-be530
 fi
 
 if [ $HOSTNAME = "puma" ]; then
