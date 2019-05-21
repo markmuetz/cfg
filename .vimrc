@@ -82,7 +82,7 @@ map <S-h> gT
 map <S-l> gt
 nnoremap <silent> <C-h> :execute 'silent! tabmove ' . (tabpagenr()-2)<CR>
 " Is this right on all computers? Try +1 if not.
-nnoremap <silent> <C-l> :execute 'silent! tabmove ' . (tabpagenr())<CR>
+nnoremap <silent> <C-l> :execute 'silent! tabmove ' . (tabpagenr()+1)<CR>
 
 " Awesome plugin support
 map <F2> :NERDTreeToggle<CR>
@@ -145,3 +145,10 @@ set sc
 set textwidth=0 wrapmargin=0
 
 set laststatus=2
+
+fun! StripTrailingWhitespaces()
+    let l = line(".")
+    let c = col(".")
+    %s/\s\+$//e
+    call cursor(l, c)
+endfun

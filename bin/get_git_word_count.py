@@ -42,9 +42,9 @@ if __name__ == '__main__':
     for k, v in counts.items():
         plt.figure(k)
         plt.title(k)
-        plt.plot(v[::-1])
-        # plt.plot(dates[::-1], v[::-1])
-        # plt.xticks(rotation=90)
+        # plt.plot(v[::-1])
+        plt.plot(dates[::-1], v[::-1])
+        plt.xticks(rotation=90)
         plt.tight_layout()
 
     plt.show()
