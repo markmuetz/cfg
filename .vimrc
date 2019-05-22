@@ -152,3 +152,5 @@ fun! StripTrailingWhitespaces()
     %s/\s\+$//e
     call cursor(l, c)
 endfun
+
+nnoremap <F3> :!./build.sh <enter><enter>
