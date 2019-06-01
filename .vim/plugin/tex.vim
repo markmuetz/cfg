@@ -18,4 +18,8 @@ let Tex_FoldedSections=""
 let Tex_FoldedEnvironments=""
 let Tex_FoldedMisc=""
 
+" Stop annoying behaviour where {} turns into {}<++>
 let g:Imap_UsePlaceHolders = 0
+
+" No spell check for comments.
+let g:tex_comment_nospell=1
