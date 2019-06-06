@@ -1,4 +1,3 @@
-
 " An example for a vimrc file. 
 
 " Maintainer: Bram Moolenaar 
@@ -64,6 +63,8 @@ endif
 "
 "   endif
 "
+"
+let mapleader = '#'
 
 " set tabs to space, instead of tabs. Set defauly indent to 2
 set softtabstop=4
@@ -154,3 +155,5 @@ fun! StripTrailingWhitespaces()
 endfun
 
 nnoremap <F3> :!./build.sh <enter><enter>
+
+
