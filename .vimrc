@@ -154,7 +154,7 @@ fun! StripTrailingWhitespaces()
     call cursor(l, c)
 endfun
 
-nnoremap <F3> :!./build.sh <enter><enter>
+nnoremap <F3> :!make <enter><enter>
 
 " Regenerate binary file ~/.vim/spell/en.utf-8.add.spl every time vim starts
 " IF it is newer than the corresponding .add file.
