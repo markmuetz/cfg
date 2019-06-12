@@ -156,4 +156,11 @@ endfun
 
 nnoremap <F3> :!./build.sh <enter><enter>
 
-
+" Regenerate binary file ~/.vim/spell/en.utf-8.add.spl every time vim starts
+" IF it is newer than the corresponding .add file.
+" https://vi.stackexchange.com/a/5052/21725
+for d in glob('~/.vim/spell/*.add', 1, 1)
+    if filereadable(d) && (!filereadable(d . '.spl') || getftime(d) > getftime(d . '.spl'))
+        silent exec 'mkspell! ' . fnameescape(d)
+    endif
+endfor
