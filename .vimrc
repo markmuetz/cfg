@@ -170,3 +170,5 @@ for d in glob('~/.vim/spell/*.add', 1, 1)
         silent exec 'mkspell! ' . fnameescape(d)
     endif
 endfor
+
+autocmd FileType tex autocmd BufWritePre <buffer> %s/\s\+$//e
