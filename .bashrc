@@ -167,3 +167,9 @@ if hash git 2>/dev/null; then
 else
     alias cfg='echo "cfg not available: no git"'
 fi
+
+# Remove (base) from PS1.
+# Gets added by conda.
+# Doing it like this means that new envs will still be prepended to PS1.
+# https://stackoverflow.com/a/55172508/54557
+PS1="$(echo $PS1 | sed 's/(base) //') "
