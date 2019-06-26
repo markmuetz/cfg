@@ -54,11 +54,13 @@ def main(args):
         plt.title('counts')
         for k, v in counts.items():
             if args.use_date:
-                plt.plot(dates[::-1], v[::-1])
+                plt.plot(dates[::-1], v[::-1], label=k)
             else:
-                plt.plot(v[::-1])
+                plt.plot(v[::-1], label=k)
+        plt.legend()
+        if args.use_date:
             plt.xticks(rotation=90)
-            plt.tight_layout()
+        plt.tight_layout()
 
         plt.show()
     finally:
