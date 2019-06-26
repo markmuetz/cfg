@@ -37,10 +37,14 @@ def main(args):
 
     try:
         assert re.search('\* master', sp.check_output('git branch'.split()).decode().strip())
-        rev_list = sp.check_output('git rev-list master'.split()).decode().split('\n')
+        if args.use_tags:
+            rev_list = sp.check_output('git tag --sort=committerdate'.split()).decode().split('\n')[::-1]
+        else:
+            rev_list = sp.check_output('git rev-list master'.split()).decode().split('\n')
 
         dates = []
         counts = defaultdict(list)
+
         for rev in rev_list:
             sp.check_output('git checkout {}'.format(rev).split())
             filenames = get_summary_info(*args.fn_globs)

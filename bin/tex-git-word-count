@@ -10,6 +10,7 @@ if __name__ == '__main__':
     parser.add_argument('--fn-globs', nargs='+')
     parser.add_argument('--dir', default=Path.cwd())
     parser.add_argument('--use-date', action='store_true')
+    parser.add_argument('--use-tags', action='store_true')
 
     args = parser.parse_args()
     print(args)
