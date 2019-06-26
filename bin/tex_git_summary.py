@@ -17,6 +17,7 @@ def get_summary_info(*fn_globs):
         split_line = line.split(':')
         if len(split_line) == 3:
             word_count = int(split_line[0])
+            # Hack to make ch01_introduction appear the same as ch01 (deals with renames).
             filename = split_line[2].strip()[:4]
         elif len(split_line) == 2:
             word_count = int(split_line[0])
