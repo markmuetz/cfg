@@ -31,38 +31,46 @@ def parse_git_datetime(s):
     return dt.datetime.strptime(s, '%Y-%m-%d %H:%M:%S %z')
 
 
-def main(args):
+def main(tex_dir, fn_globs, use_tags, use_date):
     orig_dir = Path.cwd()
-    os.chdir(args.dir)
+    os.chdir(tex_dir)
 
     try:
         assert re.search('\* master', sp.check_output('git branch'.split()).decode().strip())
-        if args.use_tags:
+        if use_tags:
             rev_list = sp.check_output('git tag --sort=committerdate'.split()).decode().split('\n')[::-1]
         else:
             rev_list = sp.check_output('git rev-list master'.split()).decode().split('\n')
 
-        dates = []
-        counts = defaultdict(list)
+        dates_for_fn = defaultdict(list)
+        counts_for_fn = defaultdict(list)
+        all_dates = {}
+        counter = 0
 
         for rev in rev_list:
-            sp.check_output('git checkout {}'.format(rev).split())
-            filenames = get_summary_info(*args.fn_globs)
-            for k, v in filenames.items():
-                counts[k].append(v)
+            sp.run('git checkout {} 1>/dev/null'.format(rev), stdout=sp.DEVNULL, stderr=sp.DEVNULL, shell=True)
             date = parse_git_datetime(sp.check_output('git show -s --format=%ci'.split()).decode().strip())
-            print(date)
-            dates.append(date)
+            print(f'{rev}: {date}')
+
+            fn_counts = get_summary_info(*fn_globs)
+            for fn, count in fn_counts.items():
+                counts_for_fn[fn].append(count)
+                dates_for_fn[fn].append(date)
+                if date not in all_dates:
+                    all_dates[date] = counter
+                    counter += 1
 
         plt.figure('counts')
         plt.title('counts')
-        for k, v in counts.items():
-            if args.use_date:
-                plt.plot(dates[::-1], v[::-1], label=k)
+        for fn, counts in counts_for_fn.items():
+            dates = dates_for_fn[fn]
+            if use_date:
+                plt.plot(dates[::-1], counts[::-1], label=fn)
             else:
-                plt.plot(v[::-1], label=k)
+                commits = [all_dates[date] for date in dates]
+                plt.plot(commits, counts[::-1], label=fn)
         plt.legend()
-        if args.use_date:
+        if use_date:
             plt.xticks(rotation=90)
         plt.tight_layout()
 
@@ -71,4 +79,3 @@ def main(args):
         sp.call('git checkout master'.split())
 
     os.chdir(orig_dir)
-
