@@ -10,33 +10,38 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 
+def run(cmd):
+    return sp.run(cmd, check=True, shell=True, stdout=sp.PIPE, stderr=sp.DEVNULL, encoding='utf8')
+
+
 def _texcount(fn_globs):
-    return sp.check_output('texcount -sum -brief {}'.format(' '.join(fn_globs)).split(),
-                           stderr=sp.DEVNULL).decode()
+    return run('texcount -sum -brief {}'.format(' '.join(fn_globs))).stdout
 
 
 def _git_check_on_master():
-    return re.search('\* master', sp.check_output('git branch'.split()).decode().strip())
+    return re.search('\* master', run('git branch').stdout.strip())
 
 
 def _git_ordered_tags():
-    return sp.check_output('git tag --sort=committerdate'.split()).decode().split('\n')
+    return run('git tag --sort=committerdate').stdout.split('\n')
 
 
 def _git_revisions():
-    return sp.check_output('git rev-list master'.split()).decode().split('\n')[::-1]
+    return run('git rev-list master').stdout.split('\n')[::-1]
 
 
 def _git_checkout(rev):
-    sp.run('git checkout {} 1>/dev/null'.format(rev), stdout=sp.DEVNULL, stderr=sp.DEVNULL, shell=True)
+    # Don't care about output.
+    sp.run('git checkout {}'.format(rev), check=True, stdout=sp.DEVNULL, stderr=sp.DEVNULL, shell=True)
 
 
 def _git_status():
+    # Want to show output.
     sp.run('git status', shell=True)
 
 
 def _git_rev_date():
-    return parse_git_datetime(sp.check_output('git show -s --format=%ci'.split()).decode().strip())
+    return parse_git_datetime(run('git show -s --format=%ci').stdout.strip())
 
 
 def get_tex_summary_info(*fn_globs):
