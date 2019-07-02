@@ -89,9 +89,10 @@ class TexGitInfo:
         orig_dir = Path.cwd()
         os.chdir(self.tex_dir)
         self.error = False
+        if not _git_check_on_master():
+            raise Exception('Not on master')
+
         try:
-            if not _git_check_on_master():
-                raise Exception('Not on master')
             if self.use_tags:
                 rev_list = _git_ordered_tags()
             else:
