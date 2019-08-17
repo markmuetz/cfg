@@ -5,6 +5,7 @@ import re
 import datetime as dt
 import pickle
 from collections import defaultdict
+import hashlib
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -81,7 +82,9 @@ class TexGitInfo:
         self.tex_dir = tex_dir
         self.fn_globs = fn_globs
         self.use_tags = use_tags
-        self.cache_dir = tex_dir / '.tex_git_info'
+        fn_globs_hash = hashlib.sha1(' '.join(self.fn_globs).encode()).hexdigest()
+        print(fn_globs_hash[:10])
+        self.cache_dir = tex_dir / '.tex_git_info' / fn_globs_hash[:10]
         if not self.cache_dir.exists():
             self.cache_dir.mkdir()
 
@@ -116,7 +119,9 @@ class TexGitInfo:
                     date = _git_rev_date()
                     try:
                         fn_counts = get_tex_summary_info(*self.fn_globs)
-                    except TexCountError:
+                    except TexCountError as tce:
+                        print(f'ERROR: {rev}')
+                        print(f'ERROR: {tce}')
                         continue
 
                 print(f'{rev}: {date}')
