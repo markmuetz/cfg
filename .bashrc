@@ -147,6 +147,11 @@ if [ $HOSTNAME = "exvmsrose.monsoon-metoffice.co.uk" ]; then
     . mosrs-setup-gpg-agent
 fi
 
+if [ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ] ; then
+    export WCOSMIC=/gws/nopw/j04/cosmic
+    module load jaspy/3.7/r20190612
+fi
+
 function cfg-check () {
     DOTFILES_REPO=https://github.com/markmuetz/cfg/
     LOCAL_HASH=$(cfg rev-parse HEAD)
