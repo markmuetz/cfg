@@ -104,6 +104,10 @@ alias rdf='echo -ne "\033]0;RDF\007"; ssh -Y mmuetz@login.rdf.ac.uk'
 alias puma='echo -ne "\033]0;PUMA\007"; ssh -Y markmuetz@puma.nerc.ac.uk'
 alias oak='echo -ne "\033]0;OAK\007"; ssh -Y hb865130@oak.reading.ac.uk'
 alias monsoon='echo -ne "\033]0;MONSOON\007"; ssh -Y mamue@lander.monsoon-metoffice.co.uk'
+
+export JASMIN="mmuetz@jasmin-xfer1.ceda.ac.uk"
+export ARCHER="mmuetz@login.archer.ac.uk"
+
 alias lsf='readlink -f'
 
 # Computer specific settings at end so can overwrite.
