@@ -148,6 +148,9 @@ if [ $HOSTNAME = "exvmsrose.monsoon-metoffice.co.uk" ]; then
 fi
 
 if [ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ] ; then
+    # Required for up-to-date git.
+    # export PATH="$HOME/local_install/usr/local/bin:$PATH"
+
     export WCOSMIC=/gws/nopw/j04/cosmic
     module load jaspy/3.7/r20190612
 fi
