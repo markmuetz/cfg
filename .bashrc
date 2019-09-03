@@ -154,6 +154,21 @@ if [ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ] ; then
 
     export WCOSMIC=/gws/nopw/j04/cosmic
     module load jaspy/3.7/r20190612
+    # >>> conda initialize >>>
+    # !! Contents within this block are managed by 'conda init' !!
+    __conda_setup="$('/apps/contrib/jaspy/miniconda_envs/jaspy3.7/m3-4.6.14/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
+    if [ $? -eq 0 ]; then
+        eval "$__conda_setup"
+    else
+        if [ -f "/apps/contrib/jaspy/miniconda_envs/jaspy3.7/m3-4.6.14/etc/profile.d/conda.sh" ]; then
+            . "/apps/contrib/jaspy/miniconda_envs/jaspy3.7/m3-4.6.14/etc/profile.d/conda.sh"
+        else
+            export PATH="/apps/contrib/jaspy/miniconda_envs/jaspy3.7/m3-4.6.14/bin:$PATH"
+        fi
+    fi
+    unset __conda_setup
+    # <<< conda initialize <<<
+
 fi
 
 function cfg-check () {
@@ -182,3 +197,4 @@ fi
 # Doing it like this means that new envs will still be prepended to PS1.
 # https://stackoverflow.com/a/55172508/54557
 PS1="$(echo $PS1 | sed 's/(base) //') "
+
