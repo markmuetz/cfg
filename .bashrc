@@ -165,9 +165,12 @@ if [ $HOSTNAME = "exvmsrose.monsoon-metoffice.co.uk" ]; then
     . mosrs-setup-gpg-agent
 fi
 
-if [ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ] ; then
+if [ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ] || [ $(echo $HOSTNAME) = "mass-cli1.ceda.ac.uk" ] ; then
     export WCOSMIC=/gws/nopw/j04/cosmic
-    module load jaspy/3.7/r20190612
+    if [ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ] ; then
+        module load jaspy/3.7/r20190612
+    fi
+    alias git=/apps/contrib/jaspy/miniconda_envs/jaspy3.7/m3-4.6.14/envs/jaspy3.7-m3-4.6.14-r20190612/bin/git
     # !! Contents within this block are managed by 'conda init' !!
     # NO LONGER. Managed by me!
     __conda_setup="$('/apps/contrib/jaspy/miniconda_envs/jaspy3.7/m3-4.6.14/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
@@ -181,9 +184,6 @@ if [ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ] ; then
         fi
     fi
     unset __conda_setup
-fi
-if [ $(echo $HOSTNAME) = "mass-cli1.ceda.ac.uk" ] ; then
-    export WCOSMIC=/gws/nopw/j04/cosmic
 fi
 
 function cfg-check () {

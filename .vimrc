@@ -114,7 +114,7 @@ let fortran_do_enddo=1
 
 " Tags options.
 " Recurse up looking for tags.
-set tags=./tags;/
+" set tags=./tags;/
 " F12 - open in new tab.
 nnoremap <silent><F12> <C-w><C-]><C-w>T
 
