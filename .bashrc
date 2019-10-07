@@ -98,7 +98,7 @@ if hash fcm 2>/dev/null; then
     alias svn='echo "WARNING, using svn not fcm"; svn'
 fi
 
-alias jasmin='echo -ne "\033]0;JASMIN\007"; ssh -A mmuetz@jasmin-login1.ceda.ac.uk'
+alias jasmin='echo -ne "\033]0;JASMIN\007"; ssh -AY mmuetz@jasmin-login1.ceda.ac.uk'
 alias archer='echo -ne "\033]0;ARCHER\007"; ssh -Y mmuetz@login.archer.ac.uk'
 alias rdf='echo -ne "\033]0;RDF\007"; ssh -Y mmuetz@login.rdf.ac.uk'
 alias puma='echo -ne "\033]0;PUMA\007"; ssh -Y markmuetz@puma.nerc.ac.uk'
@@ -143,20 +143,6 @@ if [ $HOSTNAME = "breakeven" ]; then
     # export OMNIUM_ANALYSIS_PKGS=scaffold:cosar
     export OMNIUM_ANALYSIS_PKGS=cosar
     export ube530=/home/markmuetz/mirrors/archer/nerc/um11.0_runs/archive/u-be530/
-
-    # !! Contents within this block are managed by 'conda init' !!
-    # NO LONGER. Managed by me!
-    __conda_setup="$('/home/markmuetz/anaconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
-    if [ $? -eq 0 ]; then
-        eval "$__conda_setup"
-    else
-        if [ -f "/home/markmuetz/anaconda3/etc/profile.d/conda.sh" ]; then
-            . "/home/markmuetz/anaconda3/etc/profile.d/conda.sh"
-        else
-            export PATH="/home/markmuetz/anaconda3/bin:$PATH"
-        fi
-    fi
-    unset __conda_setup
 fi 
 if [ $HOSTNAME = "exppostproc01.monsoon-metoffice.co.uk" ]; then
     export OMNIUM_ANALYSIS_PKGS=scaffold:cosar
@@ -207,10 +193,26 @@ else
     alias cfg='echo "cfg not available: no git"'
 fi
 
+if [ $HOSTNAME = "mistakenot" ] || [ $HOSTNAME = "zerogravitas" ] || [ $HOSTNAME = "breakeven" ]; then
+    # Activate conda envs.
+    # >>> conda initialize >>>
+    # !! Contents within this block are managed by 'conda init' !!
+    __conda_setup="$('/home/markmuetz/anaconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
+    if [ $? -eq 0 ]; then
+        eval "$__conda_setup"
+    else
+        if [ -f "/home/markmuetz/anaconda3/etc/profile.d/conda.sh" ]; then
+            . "/home/markmuetz/anaconda3/etc/profile.d/conda.sh"
+        else
+            export PATH="/home/markmuetz/anaconda3/bin:$PATH"
+        fi
+    fi
+    unset __conda_setup
+    # <<< conda initialize <<<
+fi
+
 # Remove (base) from PS1.
 # Gets added by conda.
 # Doing it like this means that new envs will still be prepended to PS1.
 # https://stackoverflow.com/a/55172508/54557
 PS1="$(echo $PS1 | sed 's/(base) //') "
-
-
