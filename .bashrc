@@ -99,12 +99,15 @@ if hash fcm 2>/dev/null; then
 fi
 
 alias jasmin='echo -ne "\033]0;JASMIN\007"; ssh -AY mmuetz@jasmin-login1.ceda.ac.uk'
-alias jasmin2='echo -ne "\033]0;JASMIN\007"; ssh -AY mmuetz@jasmin-login2.ceda.ac.uk'
+alias jasmin2='echo -ne "\033]0;JASMIN2\007"; ssh -AY mmuetz@jasmin-login2.ceda.ac.uk'
+alias hopjasmin='echo -ne "\033]0;HOPJASMIN\007"; ssh -o "ProxyCommand ssh -AY markmuetz@puma.nerc.ac.uk -W %h:%p" -AY mmuetz@jasmin-login1.ceda.ac.uk'
 alias archer='echo -ne "\033]0;ARCHER\007"; ssh -Y mmuetz@login.archer.ac.uk'
 alias rdf='echo -ne "\033]0;RDF\007"; ssh -Y mmuetz@login.rdf.ac.uk'
 alias puma='echo -ne "\033]0;PUMA\007"; ssh -Y markmuetz@puma.nerc.ac.uk'
 alias oak='echo -ne "\033]0;OAK\007"; ssh -Y hb865130@oak.reading.ac.uk'
 alias monsoon='echo -ne "\033]0;MONSOON\007"; ssh -Y mamue@lander.monsoon-metoffice.co.uk'
+
+alias jsync='rsync -e "ssh -o \"ProxyCommand ssh -A markmuetz@puma.nerc.ac.uk -W %h:%p\""'
 
 export JASMIN="mmuetz@jasmin-xfer1.ceda.ac.uk"
 export ARCHER="mmuetz@login.archer.ac.uk"
