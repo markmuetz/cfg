@@ -100,9 +100,9 @@ fi
 
 alias jasmin='echo -ne "\033]0;JASMIN\007"; ssh -AY mmuetz@jasmin-login1.ceda.ac.uk'
 alias jasmin2='echo -ne "\033]0;JASMIN2\007"; ssh -AY mmuetz@jasmin-login2.ceda.ac.uk'
-alias jasminhop='echo -ne "\033]0;HOPJASMIN\007"; ssh -o "ProxyCommand ssh -AY markmuetz@puma.nerc.ac.uk -W %h:%p" -AY mmuetz@jasmin-login1.ceda.ac.uk'
-alias jasminsci='echo -ne "\033]0;SCIJASMIN\007"; ssh -AY JasminSci4'
-alias jasminscirdg='echo -ne "\033]0;SCIJASMIN\007"; ssh -AY JasminSci4Rdg'
+alias jasminhop='echo -ne "\033]0;JASMINHOP\007"; ssh -o "ProxyCommand ssh -AY markmuetz@puma.nerc.ac.uk -W %h:%p" -AY mmuetz@jasmin-login1.ceda.ac.uk'
+alias jasminsci='echo -ne "\033]0;JASMINSCI\007"; ssh -AY JasminSci4'
+alias jasminscirdg='echo -ne "\033]0;JASMINSCI\007"; ssh -AY JasminSci4Rdg'
 
 alias archer='echo -ne "\033]0;ARCHER\007"; ssh -Y mmuetz@login.archer.ac.uk'
 alias rdf='echo -ne "\033]0;RDF\007"; ssh -Y mmuetz@login.rdf.ac.uk'
