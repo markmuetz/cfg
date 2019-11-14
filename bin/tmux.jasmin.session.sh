@@ -37,5 +37,8 @@ else
     tmux send-keys -t Jasmin:2.0 'cd $WCOSMIC/mmuetz/cosmic_ctrl && conda activate cosmic_env' C-m
     tmux send-keys -t Jasmin:2.1 'cd $WCOSMIC/mmuetz/cosmic_ctrl' C-m
 
+    tmux send-keys -t Jasmin:3.0 'cd $WCOSMIC/mmuetz/data' C-m
+    tmux send-keys -t Jasmin:3.1 'cd $WCOSMIC/mmuetz/data' C-m
+
     tmux -2 attach-session -d
 fi
