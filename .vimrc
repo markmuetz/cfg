@@ -172,3 +172,4 @@ for d in glob('~/.vim/spell/*.add', 1, 1)
 endfor
 
 autocmd FileType tex autocmd BufWritePre <buffer> %s/\s\+$//e
+autocmd FileType python autocmd BufWritePre <buffer> %s/\s\+$//e
