@@ -10,7 +10,7 @@ if has-session ; then
     tmux attach -t Jasmin_cosmic
 else
     echo "Creating new Jasmin_cosmic session"
-    tmux new-session -d -s 'Jasmin_cosmic' -n jobs
+    tmux -f .tmux.jasmin.conf new-session -d -s 'Jasmin_cosmic' -n jobs
     tmux split-window -h
     tmux select-pane -t 0
     tmux split-window 
