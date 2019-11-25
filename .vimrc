@@ -76,11 +76,12 @@ filetype plugin indent on
 " when using visual select, pressing / searches for selected text
 vmap / y/<C-R>"<CR>
 
+:set hidden
 "imap <c-q> <esc>
 "imap <c-s> <Esc><c-s>
 " map! ;; <Esc> 
-map <S-h> gT
-map <S-l> gt
+map <S-h> :bp<CR>
+map <S-l> :bn<CR>
 nnoremap <silent> <C-h> :execute 'silent! tabmove ' . (tabpagenr()-2)<CR>
 " Is this right on all computers? Try +1 if not.
 nnoremap <silent> <C-l> :execute 'silent! tabmove ' . (tabpagenr()+1)<CR>
@@ -160,7 +161,7 @@ nnoremap <C-S-F3> :!make clean <enter><enter>
 " Activate vim help for word under cursor.
 nnoremap <F4> "zyiw:exe "h ".@z.""<CR>
 " Open citation for word under cursor.
-nnoremap <F6> "zyiw:exec '!litman display' shellescape(@z, 1) '2>/dev/null 1>/dev/null'<CR><CR>
+" nnoremap <F6> "zyiw:exec '!litman display' shellescape(@z, 1) '2>/dev/null 1>/dev/null'<CR><CR>
 
 " Regenerate binary file ~/.vim/spell/en.utf-8.add.spl every time vim starts
 " IF it is newer than the corresponding .add file.
