@@ -234,4 +234,4 @@ fi
 # Gets added by conda.
 # Doing it like this means that new envs will still be prepended to PS1.
 # https://stackoverflow.com/a/55172508/54557
-PS1="$(echo $PS1 | sed 's/(base) //') "
+# PS1="$(echo $PS1 | sed 's/(base) //') "
