@@ -40,5 +40,5 @@ else
     tmux send-keys -t Jasmin_cosmic:3.0 'cd $WCOSMIC/mmuetz/data' C-m
     tmux send-keys -t Jasmin_cosmic:3.1 'cd $WCOSMIC/mmuetz/data' C-m
 
-    tmux -2 attach-session -d
+    tmux -f .tmux.jasmin.conf -2 attach-session -d
 fi
