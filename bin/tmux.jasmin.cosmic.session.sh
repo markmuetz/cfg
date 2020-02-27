@@ -31,14 +31,14 @@ else
     tmux send-keys -t Jasmin_cosmic:0.0 'watch "bjobs 2>&1"' C-m
     tmux send-keys -t Jasmin_cosmic:0.1 'watch -n10 "bjobs 2>&1|grep RUN|wc && bjobs 2>&1|grep PEND|wc"' C-m
 
-    tmux send-keys -t Jasmin_cosmic:1.0 'cd $WCOSMIC/mmuetz/projects/cosmic' C-m
-    tmux send-keys -t Jasmin_cosmic:1.1 'cd $WCOSMIC/mmuetz/cosmic_ctrl' C-m
+    tmux send-keys -t Jasmin_cosmic:1.0 'cd $HOME/projects/cosmic' C-m
+    tmux send-keys -t Jasmin_cosmic:1.1 'cd $HOME/cosmic_ctrl' C-m
 
-    tmux send-keys -t Jasmin_cosmic:2.0 'cd $WCOSMIC/mmuetz/cosmic_ctrl && conda activate cosmic_env' C-m
-    tmux send-keys -t Jasmin_cosmic:2.1 'cd $WCOSMIC/mmuetz/cosmic_ctrl' C-m
+    tmux send-keys -t Jasmin_cosmic:2.0 'cd $HOME/cosmic_ctrl/WP2_analysis && conda activate cosmic_env' C-m
+    tmux send-keys -t Jasmin_cosmic:2.1 'cd $HOME/cosmic_ctrl/WP2_analysis' C-m
 
     tmux send-keys -t Jasmin_cosmic:3.0 'cd $WCOSMIC/mmuetz/data' C-m
-    tmux send-keys -t Jasmin_cosmic:3.1 'cd $WCOSMIC/mmuetz/data' C-m
+    tmux send-keys -t Jasmin_cosmic:3.1 'cd $HOME/cosmic_ctrl/WP2_analysis/data' C-m
 
     tmux -f .tmux.jasmin.conf -2 attach-session -d
 fi
