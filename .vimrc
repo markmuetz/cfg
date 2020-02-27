@@ -161,7 +161,7 @@ nnoremap <C-S-F3> :!make clean <enter><enter>
 " Activate vim help for word under cursor.
 nnoremap <F4> "zyiw:exe "h ".@z.""<CR>
 " Open citation for word under cursor.
-" nnoremap <F6> "zyiw:exec '!litman display' shellescape(@z, 1) '2>/dev/null 1>/dev/null'<CR><CR>
+nnoremap <F7> "zyiw:exec '!litman display' shellescape(@z, 1) '2>/dev/null 1>/dev/null'<CR><CR>
 
 " Regenerate binary file ~/.vim/spell/en.utf-8.add.spl every time vim starts
 " IF it is newer than the corresponding .add file.
