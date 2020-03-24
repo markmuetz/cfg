@@ -86,7 +86,7 @@ class TexGitInfo:
         print(fn_globs_hash[:10])
         self.cache_dir = tex_dir / '.tex_git_info' / fn_globs_hash[:10]
         if not self.cache_dir.exists():
-            self.cache_dir.mkdir()
+            self.cache_dir.mkdir(parents=True)
 
     def run(self):
         orig_dir = Path.cwd()
