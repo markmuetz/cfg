@@ -122,12 +122,15 @@ class TexGitInfo:
                     except TexCountError as tce:
                         print(f'ERROR: {rev}')
                         print(f'ERROR: {tce}')
-                        continue
+                        date, fn_counts = None, None
 
                 print(f'{rev}: {date}')
 
                 with rev_cache.open('wb') as rc:
                     pickle.dump((date, fn_counts), rc)
+
+                if date is None and fn_counts is None:
+                    continue
 
                 for fn, count in fn_counts.items():
                     self.counts_for_fn[fn].append(count)
