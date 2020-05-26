@@ -161,9 +161,7 @@ if [ $HOSTNAME = "exvmsrose.monsoon-metoffice.co.uk" ]; then
     . mosrs-setup-gpg-agent
 fi
 
-if [ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ] || 
-   [ $(echo $HOSTNAME) = "mass-cli1.ceda.ac.uk" ] ||
-   [ $(echo $HOSTNAME|cut -c11-16) = "jasmin" ] ; then
+if [[ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ]] || [[ $(echo $HOSTNAME) = "mass-cli1.ceda.ac.uk" ]] || [[ $(echo $HOSTNAME|cut -c11-16) = "jasmin" ]] ; then
     export WCOSMIC=/gws/nopw/j04/cosmic
     # if [ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ] ; then
     #     module load jaspy/3.7/r20190612
