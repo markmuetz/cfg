@@ -113,6 +113,8 @@ let fortran_have_tabs=1
 let fortran_more_precise=1
 let fortran_do_enddo=1
 
+autocmd FileType tex :setlocal wrap linebreak tw=0 wrapmargin=0
+
 " Tags options.
 " Recurse up looking for tags.
 " set tags=./tags;/

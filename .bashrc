@@ -100,9 +100,10 @@ fi
 
 # Would be much nicer as a function.
 alias jasminrdg='echo -ne "\033]0;JASMIN\007"; ssh -AY mmuetz@jasmin-login1.ceda.ac.uk'
-alias jasmin2rdg='echo -ne "\033]0;JASMIN2\007"; ssh -AY mmuetz@jasmin-login2.ceda.ac.uk'
+# N.B. you can log in to jasmin2 from anywhere.
+alias jasmin2='echo -ne "\033]0;JASMIN2\007"; ssh -AY mmuetz@jasmin-login2.ceda.ac.uk'
 alias jasmin='echo -ne "\033]0;JASMIN\007"; ssh -o "ProxyCommand ssh -AY markmuetz@puma.nerc.ac.uk -W %h:%p" -AY mmuetz@jasmin-login1.ceda.ac.uk'
-alias jasmin2='echo -ne "\033]0;JASMIN\007"; ssh -o "ProxyCommand ssh -AY markmuetz@puma.nerc.ac.uk -W %h:%p" -AY mmuetz@jasmin-login2.ceda.ac.uk'
+# alias jasmin2='echo -ne "\033]0;JASMIN\007"; ssh -o "ProxyCommand ssh -AY markmuetz@puma.nerc.ac.uk -W %h:%p" -AY mmuetz@jasmin-login2.ceda.ac.uk'
 alias jasminsci='echo -ne "\033]0;JASMINSCI4\007"; ssh -AY JasminSci4'
 alias jasminscirdg='echo -ne "\033]0;JASMINSCI4\007"; ssh -AY JasminSci4Rdg'
 
