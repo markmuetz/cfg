@@ -1,5 +1,10 @@
 import sys
 from itertools import product
+from signal import signal, SIGPIPE, SIG_DFL
+
+
+# Allow piping: https://stackoverflow.com/a/30091579/54557
+signal(SIGPIPE, SIG_DFL)
 
 def usage():
     print('Usage:')
