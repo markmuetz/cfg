@@ -98,25 +98,26 @@ if hash fcm 2>/dev/null; then
     alias svn='echo "WARNING, using svn not fcm"; svn'
 fi
 
-# Would be much nicer as a function.
-alias jasminrdg='echo -ne "\033]0;JASMIN\007"; ssh -AY mmuetz@jasmin-login1.ceda.ac.uk'
+function jasmin-sci () {
+    SERVER=$1
+    echo -ne "\033]0;JASMIN-SCI${SERVER}\007"
+    ssh jasmin-sci${SERVER}.ceda.ac.uk
+}
+
+alias jasmin-login1='echo -ne "\033]0;JASMIN-LOGIN1\007"; ssh -AY mmuetz@jasmin-login1.ceda.ac.uk'
 # N.B. you can log in to jasmin2 from anywhere.
-alias jasmin2='echo -ne "\033]0;JASMIN2\007"; ssh -AY mmuetz@jasmin-login2.ceda.ac.uk'
-alias jasmin='echo -ne "\033]0;JASMIN\007"; ssh -o "ProxyCommand ssh -AY markmuetz@puma.nerc.ac.uk -W %h:%p" -AY mmuetz@jasmin-login1.ceda.ac.uk'
-# alias jasmin2='echo -ne "\033]0;JASMIN\007"; ssh -o "ProxyCommand ssh -AY markmuetz@puma.nerc.ac.uk -W %h:%p" -AY mmuetz@jasmin-login2.ceda.ac.uk'
-alias jasminsci='echo -ne "\033]0;JASMINSCI4\007"; ssh -AY JasminSci4'
-alias jasminscirdg='echo -ne "\033]0;JASMINSCI4\007"; ssh -AY JasminSci4Rdg'
+alias jasmin-login2='echo -ne "\033]0;JASMIN-LOGIN2\007"; ssh -AY mmuetz@JasminLogin2'
+# alias jasmin='echo -ne "\033]0;JASMIN\007"; ssh -o "ProxyCommand ssh -AY markmuetz@puma.nerc.ac.uk -W %h:%p" -AY mmuetz@jasmin-login1.ceda.ac.uk'
 
 alias archer='echo -ne "\033]0;ARCHER\007"; ssh -Y mmuetz@login.archer.ac.uk'
-alias rdf='echo -ne "\033]0;RDF\007"; ssh -Y mmuetz@login.rdf.ac.uk'
+# alias rdf='echo -ne "\033]0;RDF\007"; ssh -Y mmuetz@login.rdf.ac.uk'
 alias puma='echo -ne "\033]0;PUMA\007"; ssh -Y markmuetz@puma.nerc.ac.uk'
-alias oak='echo -ne "\033]0;OAK\007"; ssh -Y hb865130@oak.reading.ac.uk'
-alias monsoon='echo -ne "\033]0;MONSOON\007"; ssh -Y mamue@lander.monsoon-metoffice.co.uk'
+# alias oak='echo -ne "\033]0;OAK\007"; ssh -Y hb865130@oak.reading.ac.uk'
+# alias monsoon='echo -ne "\033]0;MONSOON\007"; ssh -Y mamue@lander.monsoon-metoffice.co.uk'
+# alias jsync='rsync -e "ssh -o \"ProxyCommand ssh -A markmuetz@puma.nerc.ac.uk -W %h:%p\""'
 
-alias jsync='rsync -e "ssh -o \"ProxyCommand ssh -A markmuetz@puma.nerc.ac.uk -W %h:%p\""'
-
-export JASMIN="mmuetz@jasmin-xfer1.ceda.ac.uk"
-export ARCHER="mmuetz@login.archer.ac.uk"
+# export JASMIN="mmuetz@jasmin-xfer1.ceda.ac.uk"
+# export ARCHER="mmuetz@login.archer.ac.uk"
 
 alias lsf='readlink -f'
 
