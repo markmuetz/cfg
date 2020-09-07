@@ -161,12 +161,13 @@ if [ $HOSTNAME = "exvmsrose.monsoon-metoffice.co.uk" ]; then
     . mosrs-setup-gpg-agent
 fi
 
-if [[ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ]] || [[ $(echo $HOSTNAME) = "mass-cli1.ceda.ac.uk" ]] || [[ $(echo $HOSTNAME|cut -c11-16) = "jasmin" ]] ; then
+if [[ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ]] || [[ $(echo $HOSTNAME) = "mass-cli1.ceda.ac.uk" ]] || [[ $(echo $HOSTNAME|cut -c11-16) = "jasmin" ]] || [[ $(echo $HOSTNAME|cut -c6-11) = "jasmin" ]]; then
     export WCOSMIC=/gws/nopw/j04/cosmic
     # if [ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ] ; then
     #     module load jaspy/3.7/r20190612
     # fi
     alias git=/apps/contrib/jaspy/miniconda_envs/jaspy3.7/m3-4.6.14/envs/jaspy3.7-m3-4.6.14-r20190612/bin/git
+    alias tmux=/apps/contrib/jaspy/miniconda_envs/jaspy3.7/m3-4.6.14/envs/jaspy3.7-m3-4.6.14-r20190612/bin/tmux
     # !! Contents within this block are managed by 'conda init' !!
     # NO LONGER. Managed by me!
     __conda_setup="$('/home/users/mmuetz/miniconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"

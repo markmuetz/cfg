@@ -35,8 +35,8 @@ else
     tmux send-keys -t Jasmin_cosmic:1.0 'cd $HOME/projects/cosmic' C-m
     tmux send-keys -t Jasmin_cosmic:1.1 'cd $HOME/projects/cosmic/ctrl' C-m
 
-    tmux send-keys -t Jasmin_cosmic:2.0 'cd $HOME/cosmic_ctrl/WP2_analysis && conda activate cosmic_env && export HEADLESS=True' C-m
-    tmux send-keys -t Jasmin_cosmic:2.1 'cd $HOME/cosmic_ctrl/WP2_analysis' C-m
+    tmux send-keys -t Jasmin_cosmic:2.0 'cd $HOME/projects/cosmic/ctrl/WP2_analysis && conda activate cosmic_env && export MPLBACKEND=agg' C-m
+    tmux send-keys -t Jasmin_cosmic:2.1 'cd $HOME/projects/cosmic/ctrl/WP2_analysis' C-m
 
     tmux send-keys -t Jasmin_cosmic:3.0 'cd $WCOSMIC/mmuetz/data' C-m
     tmux send-keys -t Jasmin_cosmic:3.1 'cd $WCOSMIC/mmuetz/data' C-m
