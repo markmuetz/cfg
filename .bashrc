@@ -101,12 +101,12 @@ fi
 function jasmin-sci () {
     SERVER=$1
     echo -ne "\033]0;JASMIN-SCI${SERVER}\007"
-    ssh jasmin-sci${SERVER}.ceda.ac.uk
+    ssh sci${SERVER}.jasmin.ac.uk
 }
 
-alias jasmin-login1='echo -ne "\033]0;JASMIN-LOGIN1\007"; ssh -AY mmuetz@jasmin-login1.ceda.ac.uk'
+# alias jasmin-login1='echo -ne "\033]0;JASMIN-LOGIN1\007"; ssh -AY mmuetz@jasmin-login1.ceda.ac.uk'
 # N.B. you can log in to jasmin2 from anywhere.
-alias jasmin-login2='echo -ne "\033]0;JASMIN-LOGIN2\007"; ssh -AY mmuetz@JasminLogin2'
+# alias jasmin-login2='echo -ne "\033]0;JASMIN-LOGIN2\007"; ssh -AY mmuetz@JasminLogin2'
 # alias jasmin='echo -ne "\033]0;JASMIN\007"; ssh -o "ProxyCommand ssh -AY markmuetz@puma.nerc.ac.uk -W %h:%p" -AY mmuetz@jasmin-login1.ceda.ac.uk'
 
 alias archer='echo -ne "\033]0;ARCHER\007"; ssh -Y mmuetz@login.archer.ac.uk'
