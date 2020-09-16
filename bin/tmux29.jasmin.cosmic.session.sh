@@ -31,8 +31,9 @@ else
 
     # Allow shells enough time to initialize.
     sleep 10
-    # $tmux send-keys -t Jasmin_cosmic:0.0 'watch -n60 "bjobs 2>&1"' C-m
-    # $tmux send-keys -t Jasmin_cosmic:0.1 'watch -n60 "bjobs 2>&1|grep RUN|wc && bjobs 2>&1|grep PEND|wc"' C-m
+    $tmux send-keys -t Jasmin_cosmic:0.0 'watch -n60 "squeue -u mmuetz 2>&1"' C-m
+    # Not working yet.
+    # $tmux send-keys -t Jasmin_cosmic:0.1 'watch -n60 "squeue -u mmuetz --states=R 2>&1|wc && squeue -u mmuetz --states=PD 2>&1"' C-m
 
     $tmux send-keys -t Jasmin_cosmic:1.0 'cd $HOME/projects/cosmic' C-m
     $tmux send-keys -t Jasmin_cosmic:1.1 'cd $HOME/projects/cosmic/ctrl' C-m
