@@ -17,3 +17,5 @@
         # Also has dates. Only difference with above is that tags/HEAD are not coloured differently.
 	logadog = log --all --decorate --oneline --graph --date=short --pretty=format:\"%C(yellow)%h%Creset %C(green)(%cd)%Creset%C(red)%C(bold)%d%Creset %s\"
 	stash-unapply = !git stash show -p | git apply -R
+        dtag = tag --sort=committerdate
+
