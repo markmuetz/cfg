@@ -6,6 +6,17 @@ function has-session {
   $tmux has-session -t Jasmin_cosmic 2>/dev/null
 }
 
+project=${1:-wp2}
+
+if [[ $project == wp2 ]]; then
+    echo "${project}"
+elif [[ $project == ChEx2020 ]]; then
+    echo "ch"
+else
+    echo "Unrecognized: ${project}"
+    exit 1
+fi
+
 if has-session ; then
     echo "Session Jasmin_cosmic already exists, attaching"
     sleep 1
@@ -35,11 +46,19 @@ else
     # Not working yet.
     # $tmux send-keys -t Jasmin_cosmic:0.1 'watch -n60 "squeue -u mmuetz --states=R 2>&1|wc && squeue -u mmuetz --states=PD 2>&1"' C-m
 
-    $tmux send-keys -t Jasmin_cosmic:1.0 'cd $HOME/projects/cosmic' C-m
-    $tmux send-keys -t Jasmin_cosmic:1.1 'cd $HOME/projects/cosmic/ctrl' C-m
+    if [[ $project == wp2 ]]; then
+        $tmux send-keys -t Jasmin_cosmic:1.0 'cd $HOME/projects/cosmic' C-m
+        $tmux send-keys -t Jasmin_cosmic:1.1 'cd $HOME/projects/cosmic/ctrl' C-m
 
-    $tmux send-keys -t Jasmin_cosmic:2.0 'cd $HOME/projects/cosmic/ctrl/WP2_analysis && conda activate cosmic_env && export MPLBACKEND=agg' C-m
-    $tmux send-keys -t Jasmin_cosmic:2.1 'cd $HOME/projects/cosmic/ctrl/WP2_analysis' C-m
+        $tmux send-keys -t Jasmin_cosmic:2.0 'cd $HOME/projects/cosmic/ctrl/WP2_analysis && conda activate cosmic_env && export MPLBACKEND=agg' C-m
+        $tmux send-keys -t Jasmin_cosmic:2.1 'cd $HOME/projects/cosmic/ctrl/WP2_analysis' C-m
+    elif [[ $project == ChEx2020 ]]; then
+        $tmux send-keys -t Jasmin_cosmic:1.0 'cd $HOME/projects/china_extreme_precip' C-m
+        $tmux send-keys -t Jasmin_cosmic:1.1 'cd $HOME/projects/china_extreme_precip' C-m
+
+        $tmux send-keys -t Jasmin_cosmic:2.0 'cd $HOME/projects/china_extreme_precip && conda activate cosmic_env && export MPLBACKEND=agg' C-m
+        $tmux send-keys -t Jasmin_cosmic:2.1 'cd $HOME/projects/china_extreme_precip' C-m
+    fi
 
     $tmux send-keys -t Jasmin_cosmic:3.0 'cd $WCOSMIC/mmuetz/data' C-m
     $tmux send-keys -t Jasmin_cosmic:3.1 'cd $WCOSMIC/mmuetz/data' C-m
