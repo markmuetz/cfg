@@ -12,6 +12,8 @@ if [[ $project == wp2 ]]; then
     echo "${project}"
 elif [[ $project == ChEx2020 ]]; then
     echo "ch"
+elif [[ $project == mid_lat_EASM ]]; then
+    echo "mid_lat_EASM"
 else
     echo "Unrecognized: ${project}"
     exit 1
@@ -56,8 +58,14 @@ else
         $tmux send-keys -t Jasmin_cosmic:1.0 'cd $HOME/projects/china_extreme_precip' C-m
         $tmux send-keys -t Jasmin_cosmic:1.1 'cd $HOME/projects/china_extreme_precip' C-m
 
-        $tmux send-keys -t Jasmin_cosmic:2.0 'cd $HOME/projects/china_extreme_precip && conda activate cosmic_env && export MPLBACKEND=agg' C-m
+        $tmux send-keys -t Jasmin_cosmic:2.0 'cd $HOME/projects/china_extreme_precip && conda activate cosmic_remake0.5_env && export MPLBACKEND=agg' C-m
         $tmux send-keys -t Jasmin_cosmic:2.1 'cd $HOME/projects/china_extreme_precip' C-m
+    elif [[ $project == mid_lat_EASM ]]; then
+        $tmux send-keys -t Jasmin_cosmic:1.0 'cd $HOME/projects/mid_lat_EASM' C-m
+        $tmux send-keys -t Jasmin_cosmic:1.1 'cd $HOME/projects/mid_lat_EASM' C-m
+
+        $tmux send-keys -t Jasmin_cosmic:2.0 'cd $HOME/projects/mid_lat_EASM && conda activate cosmic_remake0.5_env && export MPLBACKEND=agg' C-m
+        $tmux send-keys -t Jasmin_cosmic:2.1 'cd $HOME/projects/mid_lat_EASM' C-m
     fi
 
     $tmux send-keys -t Jasmin_cosmic:3.0 'cd $WCOSMIC/mmuetz/data' C-m
