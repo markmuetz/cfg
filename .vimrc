@@ -158,6 +158,9 @@ fun! StripTrailingWhitespaces()
 endfun
 
 nnoremap <F3> :!make <enter><enter>
+autocmd FileType python map <buffer> <F4> :w<CR>:exec '!remake run' shellescape(@%, 1)<CR>
+autocmd FileType python imap <buffer> <F4> <esc>:w<CR>:exec '!remake run' shellescape(@%, 1)<CR>
+
 " Not working? What's up with ctrl + F<number>?
 nnoremap <C-S-F3> :!make clean <enter><enter>
 " Activate vim help for word under cursor.
