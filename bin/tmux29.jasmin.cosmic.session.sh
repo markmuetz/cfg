@@ -14,6 +14,8 @@ elif [[ $project == ChEx2020 ]]; then
     echo "ch"
 elif [[ $project == mid_lat_EASM ]]; then
     echo "mid_lat_EASM"
+elif [[ $project == wescon_conv_init ]]; then
+    echo "wescon_conv_init"
 else
     echo "Unrecognized: ${project}"
     exit 1
@@ -54,20 +56,26 @@ else
         $tmux send-keys -t ${session}:1.0 'cd $HOME/projects/cosmic' C-m
         $tmux send-keys -t ${session}:1.1 'cd $HOME/projects/cosmic/ctrl' C-m
 
-        $tmux send-keys -t ${session}:2.0 'cd $HOME/projects/cosmic/ctrl/WP2_analysis && conda activate cosmic_env && export MPLBACKEND=agg' C-m
+        $tmux send-keys -t ${session}:2.0 'cd $HOME/projects/cosmic/ctrl/WP2_analysis && conda activate cosmic_remake0.4_env && export MPLBACKEND=agg' C-m
         $tmux send-keys -t ${session}:2.1 'cd $HOME/projects/cosmic/ctrl/WP2_analysis' C-m
     elif [[ $project == ChEx2020 ]]; then
         $tmux send-keys -t ${session}:1.0 'cd $HOME/projects/china_extreme_precip' C-m
         $tmux send-keys -t ${session}:1.1 'cd $HOME/projects/china_extreme_precip' C-m
 
-        $tmux send-keys -t ${session}:2.0 'cd $HOME/projects/china_extreme_precip && conda activate cosmic_remake0.5_env && export MPLBACKEND=agg' C-m
+        $tmux send-keys -t ${session}:2.0 'cd $HOME/projects/china_extreme_precip && conda activate cosmic_env && export MPLBACKEND=agg' C-m
         $tmux send-keys -t ${session}:2.1 'cd $HOME/projects/china_extreme_precip' C-m
     elif [[ $project == mid_lat_EASM ]]; then
         $tmux send-keys -t ${session}:1.0 'cd $HOME/projects/mid_lat_EASM' C-m
         $tmux send-keys -t ${session}:1.1 'cd $HOME/projects/mid_lat_EASM' C-m
 
-        $tmux send-keys -t ${session}:2.0 'cd $HOME/projects/mid_lat_EASM && conda activate cosmic_remake0.5_env && export MPLBACKEND=agg' C-m
+        $tmux send-keys -t ${session}:2.0 'cd $HOME/projects/mid_lat_EASM && conda activate cosmic_env && export MPLBACKEND=agg' C-m
         $tmux send-keys -t ${session}:2.1 'cd $HOME/projects/mid_lat_EASM' C-m
+    elif [[ $project == wescon_conv_init ]]; then
+        $tmux send-keys -t ${session}:1.0 'cd $HOME/projects/wescon_conv_init' C-m
+        $tmux send-keys -t ${session}:1.1 'cd $HOME/projects/wescon_conv_init' C-m
+
+        $tmux send-keys -t ${session}:2.0 'cd $HOME/projects/wescon_conv_init && conda activate cosmic_env && export MPLBACKEND=agg' C-m
+        $tmux send-keys -t ${session}:2.1 'cd $HOME/projects/wescon_conv_init' C-m
     fi
 
     $tmux send-keys -t ${session}:3.0 'cd $WCOSMIC/mmuetz/data' C-m
