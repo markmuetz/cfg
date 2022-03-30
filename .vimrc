@@ -158,10 +158,14 @@ fun! StripTrailingWhitespaces()
 endfun
 
 nnoremap <F3> :!make <enter><enter>
+autocmd FileType python map <buffer> <F4> :w<CR>:exec '!remake run' shellescape(@%, 1)<CR>
+autocmd FileType python imap <buffer> <F4> <esc>:w<CR>:exec '!remake run' shellescape(@%, 1)<CR>
+
 " Not working? What's up with ctrl + F<number>?
 nnoremap <C-S-F3> :!make clean <enter><enter>
+" F4 now maps to remake run.
 " Activate vim help for word under cursor.
-nnoremap <F4> "zyiw:exe "h ".@z.""<CR>
+" nnoremap <F4> "zyiw:exe "h ".@z.""<CR>
 " Open citation for word under cursor.
 nnoremap <F7> "zyiw:exec '!litman display' shellescape(@z, 1) '2>/dev/null 1>/dev/null'<CR><CR>
 
@@ -176,3 +180,5 @@ endfor
 
 autocmd FileType tex autocmd BufWritePre <buffer> %s/\s\+$//e
 autocmd FileType python autocmd BufWritePre <buffer> %s/\s\+$//e
+
+set background=dark

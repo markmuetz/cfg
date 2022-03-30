@@ -258,3 +258,12 @@ fi
 # Doing it like this means that new envs will still be prepended to PS1.
 # https://stackoverflow.com/a/55172508/54557
 # PS1="$(echo $PS1 | sed 's/(base) //') "
+
+
+if [[ -d $HOME/Dropbox/Academic/Projects ]]; then
+    for projdir in $HOME/Dropbox/Academic/Projects/*;
+    do
+        proj=$(basename $projdir)
+        export $proj=$projdir
+    done
+fi
