@@ -7,6 +7,10 @@ from pathlib import Path
 import shutil
 from typing import Union
 
+# https://stackoverflow.com/a/9562273/54557
+# Doesn't write __pycache__ files.
+sys.dont_write_bytecode = True
+
 
 def load_module(local_filename: Union[str, Path]):
     """Use Python internals to load a Python module from a filename.
