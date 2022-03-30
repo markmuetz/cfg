@@ -180,3 +180,5 @@ endfor
 
 autocmd FileType tex autocmd BufWritePre <buffer> %s/\s\+$//e
 autocmd FileType python autocmd BufWritePre <buffer> %s/\s\+$//e
+
+set background=dark
