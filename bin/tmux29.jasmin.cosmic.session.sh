@@ -16,6 +16,8 @@ elif [[ $project == mid_lat_EASM ]]; then
     echo "mid_lat_EASM"
 elif [[ $project == wescon_conv_init ]]; then
     echo "wescon_conv_init"
+elif [[ $project == usm ]]; then
+    echo "usm"
 else
     echo "Unrecognized: ${project}"
     exit 1
@@ -76,6 +78,12 @@ else
 
         $tmux send-keys -t ${session}:2.0 'cd $HOME/projects/wescon_conv_init && conda activate cosmic_env && export MPLBACKEND=agg' C-m
         $tmux send-keys -t ${session}:2.1 'cd $HOME/projects/wescon_conv_init' C-m
+    elif [[ $project == usm ]]; then
+        $tmux send-keys -t ${session}:1.0 'cd $HOME/projects/usm' C-m
+        $tmux send-keys -t ${session}:1.1 'cd $HOME/projects/usm' C-m
+
+        $tmux send-keys -t ${session}:2.0 'cd $HOME/projects/usm && conda activate usm_env && export MPLBACKEND=agg' C-m
+        $tmux send-keys -t ${session}:2.1 'cd $HOME/projects/usm' C-m
     fi
 
     $tmux send-keys -t ${session}:3.0 'cd $WCOSMIC/mmuetz/data' C-m
