@@ -18,6 +18,8 @@ elif [[ $project == wescon_conv_init ]]; then
     echo "wescon_conv_init"
 elif [[ $project == usm ]]; then
     echo "usm"
+elif [[ $project == mcs_prime ]]; then
+    echo "mcs_prime"
 else
     echo "Unrecognized: ${project}"
     exit 1
@@ -84,6 +86,12 @@ else
 
         $tmux send-keys -t ${session}:2.0 'cd $HOME/projects/usm && conda activate usm_env && export MPLBACKEND=agg' C-m
         $tmux send-keys -t ${session}:2.1 'cd $HOME/projects/usm' C-m
+    elif [[ $project == mcs_prime ]]; then
+        $tmux send-keys -t ${session}:1.0 'cd $HOME/projects/mcs_prime' C-m
+        $tmux send-keys -t ${session}:1.1 'cd $HOME/projects/mcs_prime' C-m
+
+        $tmux send-keys -t ${session}:2.0 'cd $HOME/projects/mcs_prime && conda activate mcs_prime_env && export MPLBACKEND=agg' C-m
+        $tmux send-keys -t ${session}:2.1 'cd $HOME/projects/mcs_prime' C-m
     fi
 
     $tmux send-keys -t ${session}:3.0 'cd $WCOSMIC/mmuetz/data' C-m
