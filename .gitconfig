@@ -19,3 +19,5 @@
 	stash-unapply = !git stash show -p | git apply -R
         dtag = tag --sort=committerdate
 
+[init]
+	defaultBranch = main
