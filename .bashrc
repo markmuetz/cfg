@@ -162,7 +162,13 @@ if [ $HOSTNAME = "exvmsrose.monsoon-metoffice.co.uk" ]; then
     . mosrs-setup-gpg-agent
 fi
 
-if [[ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ]] || [[ $(echo $HOSTNAME) = "mass-cli1.ceda.ac.uk" ]] || [[ $(echo $HOSTNAME|cut -c11-16) = "jasmin" ]] || [[ $(echo $HOSTNAME|cut -c6-11) = "jasmin" ]]; then
+# if [[ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ]] || [[ $(echo $HOSTNAME) = "mass-cli1.ceda.ac.uk" ]] || [[ $(echo $HOSTNAME|cut -c11-16) = "jasmin" ]] || [[ $(echo $HOSTNAME|cut -c6-11) = "jasmin" ]]; then
+# This is altogether more straightforward, and works for e.g. sci 8 which has a hostXXX hostname.
+if [ -e .i_am_on_jasmin ]; then
+    echo "#####################"
+    echo "# Setting up JASMIN #"
+    echo "# in .bashrc        #"
+    echo "#####################"
     export WCOSMIC=/gws/nopw/j04/cosmic
     export WMCSPRIME=/gws/nopw/j04/mcs_prime
 
