@@ -164,6 +164,8 @@ fi
 
 if [[ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ]] || [[ $(echo $HOSTNAME) = "mass-cli1.ceda.ac.uk" ]] || [[ $(echo $HOSTNAME|cut -c11-16) = "jasmin" ]] || [[ $(echo $HOSTNAME|cut -c6-11) = "jasmin" ]]; then
     export WCOSMIC=/gws/nopw/j04/cosmic
+    export WMCSPRIME=/gws/nopw/j04/mcs_prime
+
     # if [ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ] ; then
     #     module load jaspy/3.7/r20190612
     # fi
