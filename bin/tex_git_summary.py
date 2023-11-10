@@ -19,8 +19,8 @@ def _texcount(fn_globs):
     return run('texcount -sum -brief {}'.format(' '.join(fn_globs))).stdout
 
 
-def _git_check_on_master():
-    return re.search('\* master', run('git branch').stdout.strip())
+def _git_check_on_main():
+    return re.search('\* main', run('git branch').stdout.strip())
 
 
 def _git_ordered_tags():
@@ -28,7 +28,7 @@ def _git_ordered_tags():
 
 
 def _git_revisions():
-    return run('git rev-list master').stdout.split('\n')[::-1]
+    return run('git rev-list main').stdout.split('\n')[::-1]
 
 
 def _git_checkout(rev):
@@ -92,8 +92,8 @@ class TexGitInfo:
         orig_dir = Path.cwd()
         os.chdir(self.tex_dir)
         self.error = False
-        if not _git_check_on_master():
-            raise Exception('Not on master')
+        if not _git_check_on_main():
+            raise Exception('Not on main')
 
         try:
             if self.use_tags:
@@ -144,7 +144,7 @@ class TexGitInfo:
             _git_status()
             self.error = True
         finally:
-            _git_checkout('master')
+            _git_checkout('main')
             os.chdir(orig_dir)
 
     def plot(self, use_date=True, show=True, display_tex_dir=False):
@@ -158,9 +158,9 @@ class TexGitInfo:
                 if not self.use_tags:
                     commits = range(len(commits))
                 if use_date:
-                    plt.plot(dates, counts, label=label)
+                    plt.step(dates, counts, label=label)
                 else:
-                    plt.plot(commits, counts, label=label)
+                    plt.step(commits, counts, label=label)
             plt.legend()
             if use_date or self.use_tags:
                 plt.xticks(rotation=90)
