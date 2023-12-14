@@ -1,0 +1,4 @@
+#!/usr/bin/env python
+from get_rename_figs import main
+
+main()
