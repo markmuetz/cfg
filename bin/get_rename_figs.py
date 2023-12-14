@@ -22,22 +22,27 @@ def main():
     for k, v in FIG_DATA.items():
         assert isinstance(k, str) or isinstance(k, Path), f'{k} must be a string or a Path'
         assert isinstance(v, str) or isinstance(v, Path), f'{k} must be a string or a Path'
+    fig_data = {Path(k): Path(v) for k, v in FIG_DATA.items()}
 
-    filenames = [p.name for p in FIG_DATA.keys()]
-    dups = [k for k, v in Counter(filenames).items() if v > 1]
-    if dups:
-        raise Exception(f'There are duplicate filenames: {dups}')
+    infilenames = [p.name for p in fig_data.keys()]
+    indups = [k for k, v in Counter(infilenames).items() if v > 1]
+    if indups:
+        raise Exception(f'There are duplicate input filenames: {indups}')
 
-    remote_paths = ' '.join(':' + str(p) for p in FIG_DATA.keys()).strip()
+    outdups = [k for k, v in Counter(fig_data.values()).items() if v > 1]
+    if outdups:
+        raise Exception(f'There are duplicate output filenames: {outdups}')
+
+    remote_paths = ' '.join(':' + str(p) for p in fig_data.keys()).strip()
     cmd = f'rsync -av {REMOTE}{remote_paths} raw'
     print(sysrun(cmd).stdout)
 
-    rawpaths = [Path('raw') / fn for fn in filenames]
+    rawpaths = [Path('raw') / fn for fn in infilenames]
     problems = [p for p in rawpaths if not p.exists()]
     if problems:
         raise Exception(f'Some files were not copied: {problems}')
 
-    for rawpath, dst in zip(rawpaths, FIG_DATA.values()):
+    for rawpath, dst in zip(rawpaths, fig_data.values()):
         print(f'{rawpath} -> {dst}')
         shutil.copyfile(rawpath, dst)
 
