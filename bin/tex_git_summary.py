@@ -165,6 +165,7 @@ class TexGitInfo:
             if use_date or self.use_tags:
                 plt.xticks(rotation=90)
             plt.tight_layout()
+            plt.ylim((0, None))
 
             if show:
                 plt.show()
