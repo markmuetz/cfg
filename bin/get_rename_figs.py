@@ -1,12 +1,27 @@
 import sys
 sys.dont_write_bytecode = True
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
+import re
 import shutil
 import subprocess as sp
 
+
 def sysrun(cmd):
     return sp.run(cmd, check=True, shell=True, stdout=sp.PIPE, stderr=sp.PIPE, encoding='utf8')
+
+
+def parse_rsync_stderr(stderr):
+    # rsync: link_stat "/gws/nopw/j04/mcs_prime/mmuetz/data/mcs_prime_figs/mcs_local_envs/combined_filtered_radius_mcs_local_env_precursor_mean_2001-2002,2006-2020.pdf" failed: No such file or directory (2)
+    pattern = """rsync: link_stat "(?P<filename>.*?)" failed: (?P<error>.*?)\n"""
+    matches = re.findall(pattern, stderr)
+    reasons = defaultdict(list)
+    for m in matches:
+        reasons[m[1]].append(m[0])
+    for key, vs in reasons.items():
+        print(f'{key}:')
+        for v in vs:
+            print('  ', v)
 
 
 def main():
@@ -33,9 +48,20 @@ def main():
     if outdups:
         raise Exception(f'There are duplicate output filenames: {outdups}')
 
-    remote_paths = ' '.join(':' + str(p) for p in fig_data.keys()).strip()
+    if REMOTE:
+        remote_paths = ' '.join(':' + str(p) for p in fig_data.keys()).strip()
+    else:
+        remote_paths = ' '.join(str(p) for p in fig_data.keys()).strip()
     cmd = f'rsync -av {REMOTE}{remote_paths} raw'
-    print(sysrun(cmd).stdout)
+    try:
+        print(cmd)
+        ret = sysrun(cmd)
+        print(ret.stdout)
+    except sp.CalledProcessError as cpe:
+        parse_rsync_stderr(cpe.stderr)
+        print('\nRSYNC ERROR:')
+        print(cpe.stderr)
+        return
 
     rawpaths = [Path('raw') / fn for fn in infilenames]
     problems = [p for p in rawpaths if not p.exists()]
