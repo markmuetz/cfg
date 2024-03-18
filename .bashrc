@@ -101,7 +101,14 @@ fi
 function jasmin-sci () {
     SERVER=$1
     echo -ne "\033]0;JASMIN-SCI${SERVER}\007"
+    # N.B. automatically uses proxy due to .ssh/config setup for *.jasmin.ac.uk
     ssh sci${SERVER}.jasmin.ac.uk
+}
+
+function jasmin-mass () {
+    echo -ne "\033]0;JASMIN-MASS\007"
+    # N.B. automatically uses proxy due to .ssh/config setup for *.jasmin.ac.uk
+    ssh mass-cli.jasmin.ac.uk
 }
 
 # alias jasmin-login1='echo -ne "\033]0;JASMIN-LOGIN1\007"; ssh -AY mmuetz@jasmin-login1.ceda.ac.uk'
