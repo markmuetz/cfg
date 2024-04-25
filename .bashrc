@@ -98,6 +98,12 @@ if hash fcm 2>/dev/null; then
     alias svn='echo "WARNING, using svn not fcm"; svn'
 fi
 
+function monsoon () {
+    echo -ne "\033]0;MONSOON\007"
+    # N.B. set up in .ssh/config
+    ssh Monsoon
+}
+
 function jasmin-sci () {
     SERVER=$1
     echo -ne "\033]0;JASMIN-SCI${SERVER}\007"
