@@ -188,8 +188,12 @@ if [ -e .i_am_on_jasmin ]; then
     # if [ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ] ; then
     #     module load jaspy/3.7/r20190612
     # fi
-    alias git=/apps/contrib/jaspy/miniconda_envs/jaspy3.7/m3-4.6.14/envs/jaspy3.7-m3-4.6.14-r20190612/bin/git
-    alias tmux=/apps/contrib/jaspy/miniconda_envs/jaspy3.7/m3-4.6.14/envs/jaspy3.7-m3-4.6.14-r20190612/bin/tmux
+    # Standard version of git seems to work for me now.
+    # alias git=/apps/contrib/jaspy/miniconda_envs/jaspy3.7/m3-4.6.14/envs/jaspy3.7-m3-4.6.14-r20190612/bin/git
+    # Switch to a locally managed version of tmux. 
+    # Works on both mass-cli1.jasmin.ac.uk and sci4.jasmin.ac.uk
+    alias tmux=/home/users/mmuetz/miniconda3/envs/tmux_env/bin/tmux
+    # alias tmux=/apps/contrib/jaspy/miniconda_envs/jaspy3.7/m3-4.6.14/envs/jaspy3.7-m3-4.6.14-r20190612/bin/tmux
     # alias xfc=/home/users/mmuetz/xfc_venv/bin/xfc
     # !! Contents within this block are managed by 'conda init' !!
     # NO LONGER. Managed by me!
