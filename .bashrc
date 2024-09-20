@@ -301,7 +301,13 @@ fi
 # Doing it like this means that new envs will still be prepended to PS1.
 # https://stackoverflow.com/a/55172508/54557
 # PS1="$(echo $PS1 | sed 's/(base) //') "
-
+[[ $- != *i* ]] && return # Stop here if not running interactively
+if [ $HOSTNAME = "exvmsrose.monsoon-metoffice.co.uk" ] || [ $(echo $HOSTNAME|cut -c1-5) = "xcslc" ]; then
+    if ! { [ "$TERM" = "screen" ] && [ -n "$TMUX" ]; } then
+        . ~fcm/bin/mosrs-setup-gpg-agent
+    fi
+    module load hpctools-tmux
+fi
 
 if [[ -d $HOME/Dropbox/Academic/Projects ]]; then
     for projdir in $HOME/Dropbox/Academic/Projects/*;
