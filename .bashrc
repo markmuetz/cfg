@@ -133,6 +133,7 @@ alias puma='echo -ne "\033]0;PUMA\007"; ssh -Y markmuetz@puma.nerc.ac.uk'
 # export ARCHER="mmuetz@login.archer.ac.uk"
 
 alias lsf='readlink -f'
+alias du-sort-dirs="du -h --max-depth=1|sort -hr"
 
 # Computer specific settings at end so can overwrite.
 if [ $(echo $HOSTNAME|cut -c1-7) = "eslogin" ] || [ $(echo $HOSTNAME|cut -c1-6) = "esPP00" ] ; then
