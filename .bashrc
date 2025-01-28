@@ -134,7 +134,8 @@ alias puma='echo -ne "\033]0;PUMA\007"; ssh -Y markmuetz@puma.nerc.ac.uk'
 
 alias lsf='readlink -f'
 alias du-sort-dirs="du -h --max-depth=1|sort -hr"
-chup() {
+# Thanks ChatGPT!
+cdup() {
   local count=$1
   if [[ -z "$count" ]]; then
     count=1
