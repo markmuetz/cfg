@@ -106,9 +106,17 @@ function monsoon () {
 
 function jasmin-sci () {
     SERVER=$1
-    echo -ne "\033]0;JASMIN-SCI${SERVER}\007"
-    # N.B. automatically uses proxy due to .ssh/config setup for *.jasmin.ac.uk
-    ssh sci${SERVER}.jasmin.ac.uk
+    if [ -z "$2" ]
+    then
+        echo -ne "\033]0;jasmin-sci-${SERVER}\007"
+        # echo "No tmux requested"
+        # N.B. automatically uses proxy due to .ssh/config setup for *.jasmin.ac.uk
+        ssh sci-${SERVER}.jasmin.ac.uk
+    else
+        TMUX_SESS=$2
+        echo -ne "\033]0;jasmin-sci-${SERVER} ${TMUX_SESS}\007"
+        ssh sci-${SERVER}.jasmin.ac.uk -t "/home/users/mmuetz/miniconda3/envs/tmux_env/bin/tmux new-session -As ${TMUX_SESS}"
+    fi
 }
 
 function jasmin-mass () {
@@ -116,6 +124,14 @@ function jasmin-mass () {
     # N.B. automatically uses proxy due to .ssh/config setup for *.jasmin.ac.uk
     ssh mass-cli.jasmin.ac.uk
 }
+
+function racc-cluster () {
+    SERVER=$1
+    echo -ne "\033]0;RACC-CLUSTER${SERVER}\007"
+    # N.B. automatically uses proxy due to .ssh/config setup for *.rdg.ac.uk
+    ssh racc-login.rdg.ac.uk
+}
+
 
 # alias jasmin-login1='echo -ne "\033]0;JASMIN-LOGIN1\007"; ssh -AY mmuetz@jasmin-login1.ceda.ac.uk'
 # N.B. you can log in to jasmin2 from anywhere.

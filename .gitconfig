@@ -5,6 +5,7 @@
 	editor = vim
 	pager = less -r
 	askPass = 
+	autocrlf = input
 [push]
 	default = matching
 [credential]
