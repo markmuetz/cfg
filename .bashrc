@@ -67,6 +67,7 @@ if [ -f /etc/bash_completion ]; then
     . /etc/bash_completion
 fi
 
+export HISTSIZE=1000000
 export HISTFILESIZE=1000000000
 export FIGNORE=.pyc
 export PATH=$PATH:$HOME/bin:$HOME/.local/bin
