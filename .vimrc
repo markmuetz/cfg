@@ -182,3 +182,7 @@ autocmd FileType tex autocmd BufWritePre <buffer> %s/\s\+$//e
 autocmd FileType python autocmd BufWritePre <buffer> %s/\s\+$//e
 
 set background=dark
+
+" https://stackoverflow.com/questions/4668623/show-count-of-matches-in-vim
+set shortmess-=S
+
