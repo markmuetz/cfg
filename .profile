@@ -58,3 +58,18 @@ fi
 # Rose 
 export PATH=$PATH:$UMDIR/software/bin
 
+
+# >>> juliaup initialize >>>
+
+# !! Contents within this block are managed by juliaup !!
+
+case ":$PATH:" in
+    *:/home/markmuetz/.juliaup/bin:*)
+        ;;
+
+    *)
+        export PATH=/home/markmuetz/.juliaup/bin${PATH:+:${PATH}}
+        ;;
+esac
+
+# <<< juliaup initialize <<<

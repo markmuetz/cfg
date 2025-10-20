@@ -181,3 +181,18 @@ if [ $HOSTNAME = "exvmsrose.monsoon-metoffice.co.uk" ] || [ $(echo $HOSTNAME|cut
     module load hpctools-tmux
 fi
 
+
+# >>> juliaup initialize >>>
+
+# !! Contents within this block are managed by juliaup !!
+
+case ":$PATH:" in
+    *:/home/markmuetz/.juliaup/bin:*)
+        ;;
+
+    *)
+        export PATH=/home/markmuetz/.juliaup/bin${PATH:+:${PATH}}
+        ;;
+esac
+
+# <<< juliaup initialize <<<
