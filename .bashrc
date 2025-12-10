@@ -88,12 +88,6 @@ if hash fcm 2>/dev/null; then
     alias svn='echo "WARNING, using svn not fcm"; svn'
 fi
 
-function monsoon () {
-    echo -ne "\033]0;MONSOON\007"
-    # N.B. set up in .ssh/config
-    ssh Monsoon
-}
-
 function jasmin-sci () {
     SERVER=$1
     if [ -z "$2" ]
@@ -113,6 +107,29 @@ function jasmin-mass () {
     echo -ne "\033]0;JASMIN-MASS\007"
     # N.B. automatically uses proxy due to .ssh/config setup for *.jasmin.ac.uk
     ssh mass-cli.jasmin.ac.uk
+}
+
+function monsoonhpc () {
+    # Note, this relies heavily on rules in .ssh/config.
+    if [ -z "$1" ]
+    then
+        # Round robin login server.
+        ssh monsoonhpc
+    else
+        LOGIN_SERVER=$1
+        # e.g. login01-12
+        if [ -z "$2" ]
+        then
+            echo -ne "\033]0;monsoon-${LOGIN_SERVER}\007"
+            # echo "No tmux requested"
+            # N.B. automatically uses proxy due to .ssh/config setup for *.jasmin.ac.uk
+            ssh ${LOGIN_SERVER}
+        else
+            TMUX_SESS=$2
+            echo -ne "\033]0;monsoon-${LOGIN_SERVER} ${TMUX_SESS}\007"
+            ssh ${LOGIN_SERVER} -t "tmux new-session -As ${TMUX_SESS}"
+        fi
+    fi
 }
 
 function racc-cluster () {
