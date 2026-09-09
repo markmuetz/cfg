@@ -118,12 +118,20 @@ if [ "$FIRST_INSTALL" = yes ]; then
 else
     # Re-run: fast-forward only. Never clobber local edits -- if the branch has
     # diverged or the tree is dirty, say so and let the user sort it out.
+    BEFORE=$(cfg rev-parse HEAD)
     if [ -n "$(cfg status --porcelain)" ]; then
         say "  Local changes present, not merging. Resolve with:"
         say "      cfg status"
         say "      cfg diff"
     elif cfg merge --ff-only --quiet "origin/$BRANCH" 2>/dev/null; then
-        say "  Up to date with origin/$BRANCH"
+        AFTER=$(cfg rev-parse HEAD)
+        if [ "$BEFORE" = "$AFTER" ]; then
+            say "  Already up to date with origin/$BRANCH"
+        else
+            say "  Updated $(cfg rev-list --count "$BEFORE..$AFTER") commit(s):" \
+                "$(git --git-dir="$GIT_DIR" rev-parse --short "$BEFORE")" \
+                "-> $(cfg rev-parse --short HEAD)"
+        fi
     else
         say "  Cannot fast-forward (branch has diverged). Inspect with:"
         say "      cfg log --oneline HEAD..origin/$BRANCH"
@@ -153,6 +161,7 @@ else
     fi
     cp "$SRC" "$DEST"
     say "  Installed -- 'cfg add -A' can no longer reach untracked files"
+    say "  (note: 'cfg add -f' still overrides it, by design)"
 fi
 
 # --- Report ---------------------------------------------------------------

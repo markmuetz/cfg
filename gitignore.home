@@ -25,9 +25,15 @@
 *
 
 # --- Belt and braces ------------------------------------------------------
-# `*` above already covers these. They are spelled out so that the protection
+# `*` above already covers these. They are spelled out so the protection
 # survives anyone later relaxing the deny-all, and to document what must never
-# be committed. `cfg add -f` would override `*`, but not these.
+# be committed.
+#
+# IMPORTANT: `git add -f` overrides every rule in this file, these included --
+# there is no ignore pattern that -f will not bypass. So this file stops
+# `cfg add -A` sweeping up your home directory, which was the actual hazard,
+# but it cannot stop an explicit `cfg add -f ~/.ssh/id_rsa`. Only a pre-commit
+# hook can do that.
 
 # Private keys and credentials. Only the ssh *config* files are tracked here
 # (.ssh/remote_config, .ssh/remote_jasmin_config, and the gpg-encrypted
