@@ -42,7 +42,7 @@ def main():
     infilenames = [p.name for p in fig_data.keys()]
     indups = [k for k, v in Counter(infilenames).items() if v > 1]
     if indups:
-        raise Exception(f'There are duplicate input filenames: {indups}')
+        raise Exception(f'There are duplicate input filenames: {indups}\nFilenames must be unique for copying to the raw/ output dir.')
 
     outdups = [k for k, v in Counter(fig_data.values()).items() if v > 1]
     if outdups:
@@ -52,6 +52,7 @@ def main():
         remote_paths = ' '.join(':' + str(p) for p in fig_data.keys()).strip()
     else:
         remote_paths = ' '.join(str(p) for p in fig_data.keys()).strip()
+    Path('raw').mkdir(parents=True, exist_ok=True)
     cmd = f'rsync -av {REMOTE}{remote_paths} raw'
     try:
         print(cmd)

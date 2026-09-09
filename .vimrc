@@ -186,3 +186,6 @@ set background=dark
 " https://stackoverflow.com/questions/4668623/show-count-of-matches-in-vim
 set shortmess-=S
 
+set autoread
+autocmd FocusGained,BufEnter,CursorHold,CursorHoldI * checktime
+
