@@ -1,2 +1,2 @@
 [litman]
-litman_dir = /home/markmuetz/LitManData
+litman_dir = $HOME/LitManData
