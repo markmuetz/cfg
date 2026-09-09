@@ -1,0 +1,69 @@
+# Installed to $HOME/.gitignore by bin/cfg-install. Deliberately NOT tracked as
+# a plain .gitignore: the cfg repo's work tree is $HOME in a deployment, but is
+# an ordinary directory in a development clone (e.g. ~/projects/cfg), and a
+# deny-all committed at the repo root would make every `git add` there need -f
+# too. The deny-all is a property of the deployment, so the installer copies it
+# into place and re-syncs it on each run.
+#
+# Deny everything by default. Without this, a single `cfg add -A` stages the
+# whole home directory -- ssh keys, Documents, .cfg itself -- and this repo is
+# public. Note that `status.showUntrackedFiles=no` does NOT protect against
+# that: it only hides untracked files from `cfg status`, so the working tree
+# looks clean right up until you stage a private key.
+#
+# Ignoring `*` does not affect files that are ALREADY tracked -- they stay
+# tracked and their modifications still show up in `cfg status`. It only stops
+# new files being picked up automatically.
+#
+# So: to add a new dotfile you must force it, deliberately, one at a time:
+#
+#     cfg add -f .some-new-rc
+#
+# N.B. this file only applies to the cfg repo. Other repos (e.g. under
+# ~/projects) have their own roots below $HOME and never read it.
+
+*
+
+# --- Belt and braces ------------------------------------------------------
+# `*` above already covers these. They are spelled out so that the protection
+# survives anyone later relaxing the deny-all, and to document what must never
+# be committed. `cfg add -f` would override `*`, but not these.
+
+# Private keys and credentials. Only the ssh *config* files are tracked here
+# (.ssh/remote_config, .ssh/remote_jasmin_config, and the gpg-encrypted
+# ssh_config_zerogravitas.gpg) -- never key material.
+.ssh/id_*
+!.ssh/id_*.pub
+.ssh/known_hosts*
+.ssh/authorized_keys
+*.pem
+*.key
+*.p12
+*.pfx
+.netrc
+.pgpass
+
+# Cloud / API credentials that like to live in $HOME.
+.aws/
+.config/gcloud/
+.kube/
+.docker/config.json
+.npmrc
+.pypirc
+.git-credentials
+
+# MOSRS / Rose / conda state, none of which belongs in version control.
+.rose*/
+.cylc/
+.metomi/
+.conda/
+.condarc.local
+
+# The repo's own git dir and the installer's backups.
+.cfg/
+.cfg-backup/
+
+# OS noise.
+.DS_Store
+._*
+.Trash/
