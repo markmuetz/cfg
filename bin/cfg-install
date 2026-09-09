@@ -1,0 +1,214 @@
+#!/bin/sh
+# Install or update the cfg dotfiles as a bare repo with $HOME as its work tree.
+#
+# Safe to re-run: on an already-installed machine it just fast-forwards, so this
+# doubles as the update path. Nothing is deleted -- any file that would be
+# overwritten on first install is moved into a timestamped ~/.cfg-backup/.
+#
+# On a new machine:
+#     curl -fsSL https://raw.githubusercontent.com/markmuetz/cfg/master/bin/cfg-install | sh
+# or, once the repo is checked out:
+#     ~/bin/cfg-install
+#
+# Env overrides: CFG_REPO (source repo), CFG_BRANCH (branch to check out).
+
+set -eu
+
+REPO=${CFG_REPO:-https://github.com/markmuetz/cfg}
+GIT_DIR=$HOME/.cfg
+BACKUP_ROOT=$HOME/.cfg-backup
+
+# Bare `git`, not /usr/bin/git: on macOS the Homebrew one is usually wanted, and
+# this matches the `cfg` alias defined in .shrc.common.
+cfg() {
+    git --git-dir="$GIT_DIR" --work-tree="$HOME" "$@"
+}
+
+say()  { printf '%s\n' "$*"; }
+step() { printf '\n==> %s\n' "$*"; }
+die()  { printf 'cfg-install: %s\n' "$*" >&2; exit 1; }
+
+command -v git >/dev/null 2>&1 || die "git is not installed"
+
+# Run from $HOME. Git resolves pathspecs and limits output relative to the
+# current directory, so running this from a subdirectory of the work tree (e.g.
+# ~/projects/cfg/bin) makes `ls-tree`, `ls-files` and `status` see only that
+# subtree -- which silently reported "nothing to back up" and then failed the
+# checkout on the files it had just missed.
+cd "$HOME" || die "cannot cd to $HOME"
+
+# --- Clone (first install only) -------------------------------------------
+
+if [ -e "$GIT_DIR" ]; then
+    [ -d "$GIT_DIR" ] || die "$GIT_DIR exists but is not a directory"
+    git --git-dir="$GIT_DIR" rev-parse --git-dir >/dev/null 2>&1 \
+        || die "$GIT_DIR exists but is not a git repository -- move it aside"
+    # A populated index is what marks a *completed* install. Testing for the
+    # directory alone is not enough: if the first run cloned but then failed
+    # before checking out, .cfg exists while nothing is deployed, and treating
+    # that as an update would skip the backup and checkout forever.
+    if [ -n "$(git --git-dir="$GIT_DIR" --work-tree="$HOME" ls-files | head -n 1)" ]; then
+        step "Existing install found at $GIT_DIR"
+        FIRST_INSTALL=no
+    else
+        step "Found $GIT_DIR but nothing checked out -- completing the install"
+        FIRST_INSTALL=yes
+    fi
+else
+    step "Cloning $REPO into $GIT_DIR"
+    git clone --bare "$REPO" "$GIT_DIR"
+    FIRST_INSTALL=yes
+fi
+
+# --- Configure ------------------------------------------------------------
+# Both settings are idempotent, and applied on every run so that a machine
+# installed before this script existed gets fixed up too.
+
+step "Configuring"
+
+# Without this, `cfg status` lists every file in $HOME.
+cfg config status.showUntrackedFiles no
+say "  status.showUntrackedFiles = no"
+
+# `git clone --bare` sets no fetch refspec, which leaves you with no
+# remote-tracking branches: `cfg status` can never report ahead/behind and
+# `cfg log origin/master` does not resolve. Add it explicitly.
+cfg config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+say "  remote.origin.fetch = +refs/heads/*:refs/remotes/origin/*"
+
+step "Fetching"
+cfg fetch --quiet origin
+say "  done"
+
+# --- Work out which branch to deploy --------------------------------------
+
+if [ -n "${CFG_BRANCH:-}" ]; then
+    BRANCH=$CFG_BRANCH
+elif BRANCH=$(cfg symbolic-ref --short HEAD 2>/dev/null); then
+    :
+else
+    BRANCH=master
+fi
+
+cfg show-ref --verify --quiet "refs/remotes/origin/$BRANCH" \
+    || die "branch '$BRANCH' does not exist on $REPO"
+
+# --- Back up anything that would be overwritten ---------------------------
+# Determined by comparing the tree against the working copy rather than by
+# scraping git's error text, which is brittle and locale-dependent.
+
+# Runs on every path, not just first install: an update that introduces a new
+# tracked file (say .zshrc) fails the same way if an untracked one is already
+# sitting there, and git reports that as a merge failure indistinguishable from
+# a diverged branch.
+step "Checking for existing dotfiles that would be overwritten"
+
+COLLISIONS=$(
+    # --full-tree: list from the repository root regardless of cwd. Belt and
+    # braces alongside the cd "$HOME" above.
+    cfg ls-tree -r --full-tree --name-only "origin/$BRANCH" | while IFS= read -r f; do
+        # A file collides if it is present in $HOME but not yet tracked.
+        if [ -e "$HOME/$f" ] &&
+           ! cfg ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+            printf '%s\n' "$f"
+        fi
+    done
+)
+
+if [ -n "$COLLISIONS" ]; then
+    BACKUP="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)"
+    say "  Moving these into $BACKUP (relative paths preserved):"
+    printf '%s\n' "$COLLISIONS" | while IFS= read -r f; do
+        mkdir -p "$BACKUP/$(dirname "$f")"
+        mv "$HOME/$f" "$BACKUP/$f"
+        say "    $f"
+    done
+else
+    say "  None -- nothing to back up"
+fi
+
+# --- Deploy ---------------------------------------------------------------
+
+step "Checking out $BRANCH"
+
+if [ "$FIRST_INSTALL" = yes ]; then
+    # -B resets the local branch to the freshly-fetched remote state before
+    # checking out. The local ref dates from clone time and can be behind if the
+    # remote moved since (or if an earlier run failed part-way), and the backup
+    # scan above compares against origin/$BRANCH -- so without this the tree
+    # deployed need not be the tree the collisions were computed from.
+    cfg checkout -q -B "$BRANCH" "origin/$BRANCH"
+    cfg branch --quiet --set-upstream-to="origin/$BRANCH" "$BRANCH"
+    say "  Checked out, tracking origin/$BRANCH"
+else
+    # Re-run: fast-forward only. Never clobber local edits -- if the branch has
+    # diverged or the tree is dirty, say so and let the user sort it out.
+    BEFORE=$(cfg rev-parse HEAD)
+    if [ -n "$(cfg status --porcelain)" ]; then
+        say "  Local changes present, not merging. Resolve with:"
+        say "      cfg status"
+        say "      cfg diff"
+    elif MERGE_ERR=$(cfg merge --ff-only --quiet "origin/$BRANCH" 2>&1); then
+        AFTER=$(cfg rev-parse HEAD)
+        if [ "$BEFORE" = "$AFTER" ]; then
+            say "  Already up to date with origin/$BRANCH"
+        else
+            say "  Updated $(cfg rev-list --count "$BEFORE..$AFTER") commit(s):" \
+                "$(git --git-dir="$GIT_DIR" rev-parse --short "$BEFORE")" \
+                "-> $(cfg rev-parse --short HEAD)"
+        fi
+    else
+        # Don't assert a cause -- "not possible to fast-forward" (genuine
+        # divergence) and "untracked working tree files would be overwritten"
+        # are different problems and the old message claimed the former for
+        # both. Show what git actually said.
+        say "  Could not fast-forward. git said:"
+        printf '%s\n' "$MERGE_ERR" | sed 's/^/      /'
+        say "  Behind by $(cfg rev-list --count "HEAD..origin/$BRANCH") commit(s);" \
+            "ahead by $(cfg rev-list --count "origin/$BRANCH..HEAD")."
+    fi
+fi
+
+# --- Install the deny-all ~/.gitignore ------------------------------------
+# Tracked as gitignore.home rather than .gitignore so that it does not also
+# smother development clones of this repo. Copied, and re-synced on every run
+# so an edit to gitignore.home propagates on the next cfg-install.
+
+step "Installing ~/.gitignore"
+
+SRC=$HOME/gitignore.home
+DEST=$HOME/.gitignore
+
+if [ ! -f "$SRC" ]; then
+    say "  WARNING: $SRC missing, skipping"
+elif [ -f "$DEST" ] && cmp -s "$SRC" "$DEST"; then
+    say "  Already up to date"
+else
+    if [ -e "$DEST" ]; then
+        BACKUP=${BACKUP:-$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)}
+        mkdir -p "$BACKUP"
+        mv "$DEST" "$BACKUP/.gitignore"
+        say "  Existing ~/.gitignore moved to $BACKUP/.gitignore"
+    fi
+    cp "$SRC" "$DEST"
+    say "  Installed -- 'cfg add -A' can no longer reach untracked files"
+    say "  (note: 'cfg add -f' still overrides it, by design)"
+fi
+
+# --- Report ---------------------------------------------------------------
+
+step "Done"
+say "  Repo:   $GIT_DIR (work tree: $HOME)"
+say "  Branch: $BRANCH @ $(cfg rev-parse --short HEAD)"
+
+if [ ! -f "$HOME/.gitignore" ]; then
+    say ""
+    say "  WARNING: no ~/.gitignore was checked out. Without it, 'cfg add -A'"
+    say "  will stage your entire home directory into a public repo."
+fi
+
+say ""
+say "  Start a new shell to pick up the 'cfg' alias, then:"
+say "      cfg status          # tracked files only"
+say "      cfg add -f <file>   # -f is required: ~/.gitignore denies by default"
+say "      cfg-install         # re-run to update"

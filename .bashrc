@@ -1,215 +1,65 @@
-# To enable the settings / commands in this file for login shells as well,
-# this file has to be sourced in /etc/profile.
+# bash entry point. Everything portable lives in ~/.shrc.common, which is
+# shared with ~/.zshrc; this file holds only the bash-specific bits.
 
-# If not running interactively, don't do anything
-[ -z "$PS1" ] && return
+# If not running interactively, don't do anything.
+case $- in
+    *i*) ;;
+      *) return ;;
+esac
 
-# check the window size after each command and, if necessary,
-# update the values of LINES and COLUMNS.
+# Check the window size after each command and, if necessary, update LINES and
+# COLUMNS.
 shopt -s checkwinsize
 
-# set variable identifying the chroot you work in (used in the prompt below)
+# Set variable identifying the chroot you work in (used in the prompt below).
 if [ -z "$debian_chroot" ] && [ -r /etc/debian_chroot ]; then
     debian_chroot=$(cat /etc/debian_chroot)
 fi
 
-use_color=true
+# --- Prompt ---------------------------------------------------------------
+# The zsh equivalent is PROMPT in ~/.zshrc -- keep the two looking the same.
+#
+# ~/.compname overrides the hostname (else \h), ~/.username overrides the
+# account name (else markmuetz). See the fuller note in ~/.zshrc: the local
+# account differs per machine and \u would show whichever it happens to be.
 
-# Set colorful PS1 only on colorful terminals.
-# dircolors --print-database uses its own built-in database
-# instead of using /etc/DIR_COLORS.  Try to use the external file
-# first to take advantage of user additions.  Use internal bash
-# globbing instead of external grep binary.
-safe_term=${TERM//[^[:alnum:]]/?}   # sanitize TERM
-match_lhs=""
-[[ -f ~/.dir_colors   ]] && match_lhs="${match_lhs}$(<~/.dir_colors)"
-[[ -f /etc/DIR_COLORS ]] && match_lhs="${match_lhs}$(</etc/DIR_COLORS)"
-[[ -z ${match_lhs}    ]] \
-        && type -P dircolors >/dev/null \
-        && match_lhs=$(dircolors --print-database)
-[[ $'\n'${match_lhs} == *$'\n'"TERM "${safe_term}* ]] && use_color=true
-
-if ${use_color} ; then
-    # Enable colors for ls, etc.  Prefer ~/.dir_colors #64489
-    if type -P dircolors >/dev/null ; then
-        if [[ -f ~/.dir_colors ]] ; then
-            eval $(dircolors -b ~/.dir_colors)
-        elif [[ -f /etc/DIR_COLORS ]] ; then
-            eval $(dircolors -b /etc/DIR_COLORS)
-        else
-            eval $(dircolors)
-        fi
-    fi
-
-    if [[ ${EUID} == 0 ]] ; then
-        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;31m\]\h\[\033[01;34m\] \W \$\[\033[00m\] '
-    else
-        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[01;34m\] \w \$\[\033[00m\] '
-    fi
-
-    alias ls='ls --color=auto'
-    alias grep='grep --colour=auto'
-    alias rgrep='rgrep --colour=auto'
+if [ -f "$HOME/.compname" ]; then
+    _compname=$(cat "$HOME/.compname")
 else
-    if [[ ${EUID} == 0 ]] ; then
-        # show root@ when we don't have colors
-        PS1='\u@\h \W \$ '
-    else
-        PS1='\u@\h \w \$ '
-    fi
+    _compname='\h'
+fi
+if [ -f "$HOME/.username" ]; then
+    _username=$(cat "$HOME/.username")
+else
+    _username='markmuetz'
 fi
 
-# Try to keep environment pollution down, EPA loves us.
-unset use_color safe_term match_lhs
+if [ -t 1 ] && [ "$TERM" != "dumb" ]; then
+    if [ "${EUID}" = 0 ]; then
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;31m\]'"${_username}@${_compname}"'\[\033[01;34m\] \W \$\[\033[00m\] '
+    else
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]'"${_username}@${_compname}"'\[\033[01;34m\] \w \$\[\033[00m\] '
+    fi
+else
+    PS1="${_username}@${_compname}"' \w \$ '
+fi
 
-# enable bash completion in interactive shells
+unset _compname _username
+
+# --- History --------------------------------------------------------------
+# HISTSIZE is set in .shrc.common; HISTFILESIZE is bash-only (zsh uses SAVEHIST).
+
+export HISTFILESIZE=1000000000
+
+# --- Completion -----------------------------------------------------------
+
+export FIGNORE=.pyc
+
 if [ -f /etc/bash_completion ]; then
     . /etc/bash_completion
 fi
 
-export HISTSIZE=1000000
-export HISTFILESIZE=1000000000
-export FIGNORE=.pyc
-export PATH=$PATH:$HOME/bin:$HOME/.local/bin
+# --- Shared config --------------------------------------------------------
+# Last, so per-OS and per-site overrides win.
 
-if [[ -d $HOME/Dropbox/Academic/Projects ]]; then
-    for projdir in $HOME/Dropbox/Academic/Projects/*;
-    do
-        proj=$(basename $projdir)
-        export $proj=$projdir
-    done
-fi
-
-if ! hash rgrep 2>/dev/null; then
-    alias rgrep='grep -r'
-fi
-
-if hash fcm 2>/dev/null; then
-    alias svn='echo "WARNING, using svn not fcm"; svn'
-fi
-
-function jasmin-sci () {
-    SERVER=$1
-    if [ -z "$2" ]
-    then
-        echo -ne "\033]0;jasmin-sci-${SERVER}\007"
-        # echo "No tmux requested"
-        # N.B. automatically uses proxy due to .ssh/config setup for *.jasmin.ac.uk
-        ssh sci-${SERVER}.jasmin.ac.uk
-    else
-        TMUX_SESS=$2
-        echo -ne "\033]0;jasmin-sci-${SERVER} ${TMUX_SESS}\007"
-        ssh sci-${SERVER}.jasmin.ac.uk -t "/home/users/mmuetz/miniconda3/envs/tmux_env/bin/tmux new-session -As ${TMUX_SESS}"
-    fi
-}
-
-function jasmin-mass () {
-    echo -ne "\033]0;JASMIN-MASS\007"
-    # N.B. automatically uses proxy due to .ssh/config setup for *.jasmin.ac.uk
-    ssh mass-cli.jasmin.ac.uk
-}
-
-function monsoonhpc () {
-    # Note, this relies heavily on rules in .ssh/config.
-    if [ -z "$1" ]
-    then
-        # Round robin login server.
-        ssh monsoonhpc
-    else
-        LOGIN_SERVER=$1
-        # e.g. login01-12
-        if [ -z "$2" ]
-        then
-            echo -ne "\033]0;monsoon-${LOGIN_SERVER}\007"
-            # echo "No tmux requested"
-            # N.B. automatically uses proxy due to .ssh/config setup for *.jasmin.ac.uk
-            ssh ${LOGIN_SERVER}
-        else
-            TMUX_SESS=$2
-            echo -ne "\033]0;monsoon-${LOGIN_SERVER} ${TMUX_SESS}\007"
-            ssh ${LOGIN_SERVER} -t "tmux new-session -As ${TMUX_SESS}"
-        fi
-    fi
-}
-
-function racc-cluster () {
-    SERVER=$1
-    echo -ne "\033]0;RACC-CLUSTER${SERVER}\007"
-    # N.B. automatically uses proxy due to .ssh/config setup for *.rdg.ac.uk
-    ssh racc-login.rdg.ac.uk
-}
-
-function cfg-check () {
-    DOTFILES_REPO=https://github.com/markmuetz/cfg/
-    LOCAL_HASH=$(cfg rev-parse HEAD)
-    REMOTE_HASH=$(git ls-remote $DOTFILES_REPO|grep HEAD|awk '{print $1}')
-    if [ $LOCAL_HASH != $REMOTE_HASH ]; then
-        echo "Dotfiles out-of-date with $DOTFILES_REPO"
-    else
-        echo "Dotfiles up-to-date with $DOTFILES_REPO"
-    fi
-    if [[ `cfg status --porcelain` ]]; then
-        echo "There are uncommitted changes"
-    fi
-}
-# Check git exists:
-if hash git 2>/dev/null; then
-    alias cfg='git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
-else
-    alias cfg='echo "cfg not available: no git"'
-fi
-
-alias lsf='readlink -f'
-alias du-sort-dirs="du -h --max-depth=1|sort -hr"
-
-# Thanks ChatGPT!
-function cdup() {
-  local count=$1
-  if [[ -z "$count" ]]; then
-    count=1
-  fi
-  local ups=""
-  for ((i=1; i<=count; i++)); do
-    ups+="../"
-  done
-  cd "$ups" || return
-}
-
-# if [[ $(echo $HOSTNAME|cut -c1-10) = "jasmin-sci" ]] || [[ $(echo $HOSTNAME) = "mass-cli1.ceda.ac.uk" ]] || [[ $(echo $HOSTNAME|cut -c11-16) = "jasmin" ]] || [[ $(echo $HOSTNAME|cut -c6-11) = "jasmin" ]]; then
-# This is altogether more straightforward, and works for e.g. sci 8 which has a hostXXX hostname.
-if [ -e ~/.i_am_on_jasmin ]; then
-    source ~/.bashrc.jasmin.sh
-fi
-
-if [ $HOSTNAME = "mistakenot" ] || [ $HOSTNAME = "zerogravitas" ] || [ $HOSTNAME = "breakeven" ]; then
-    source ~/.bashrc.conda.sh
-fi
-
-if [[ $(echo $HOSTNAME|cut -c1-10) = "racc-login" ]]; then
-    source ~/.bashrc.racc.sh
-fi
-
-[[ $- != *i* ]] && return # Stop here if not running interactively
-
-if [ $HOSTNAME = "exvmsrose.monsoon-metoffice.co.uk" ] || [ $(echo $HOSTNAME|cut -c1-5) = "xcslc" ]; then
-    if ! { [ "$TERM" = "screen" ] && [ -n "$TMUX" ]; } then
-        . ~fcm/bin/mosrs-setup-gpg-agent
-    fi
-    module load hpctools-tmux
-fi
-
-
-# >>> juliaup initialize >>>
-
-# !! Contents within this block are managed by juliaup !!
-
-case ":$PATH:" in
-    *:/home/markmuetz/.juliaup/bin:*)
-        ;;
-
-    *)
-        export PATH=/home/markmuetz/.juliaup/bin${PATH:+:${PATH}}
-        ;;
-esac
-
-# <<< juliaup initialize <<<
+[ -f "$HOME/.shrc.common" ] && . "$HOME/.shrc.common"
