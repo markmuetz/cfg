@@ -30,14 +30,30 @@ die()  { printf 'cfg-install: %s\n' "$*" >&2; exit 1; }
 
 command -v git >/dev/null 2>&1 || die "git is not installed"
 
+# Run from $HOME. Git resolves pathspecs and limits output relative to the
+# current directory, so running this from a subdirectory of the work tree (e.g.
+# ~/projects/cfg/bin) makes `ls-tree`, `ls-files` and `status` see only that
+# subtree -- which silently reported "nothing to back up" and then failed the
+# checkout on the files it had just missed.
+cd "$HOME" || die "cannot cd to $HOME"
+
 # --- Clone (first install only) -------------------------------------------
 
 if [ -e "$GIT_DIR" ]; then
     [ -d "$GIT_DIR" ] || die "$GIT_DIR exists but is not a directory"
     git --git-dir="$GIT_DIR" rev-parse --git-dir >/dev/null 2>&1 \
         || die "$GIT_DIR exists but is not a git repository -- move it aside"
-    step "Existing install found at $GIT_DIR"
-    FIRST_INSTALL=no
+    # A populated index is what marks a *completed* install. Testing for the
+    # directory alone is not enough: if the first run cloned but then failed
+    # before checking out, .cfg exists while nothing is deployed, and treating
+    # that as an update would skip the backup and checkout forever.
+    if [ -n "$(git --git-dir="$GIT_DIR" --work-tree="$HOME" ls-files | head -n 1)" ]; then
+        step "Existing install found at $GIT_DIR"
+        FIRST_INSTALL=no
+    else
+        step "Found $GIT_DIR but nothing checked out -- completing the install"
+        FIRST_INSTALL=yes
+    fi
 else
     step "Cloning $REPO into $GIT_DIR"
     git clone --bare "$REPO" "$GIT_DIR"
@@ -85,7 +101,9 @@ if [ "$FIRST_INSTALL" = yes ]; then
     step "Checking for existing dotfiles that would be overwritten"
 
     COLLISIONS=$(
-        cfg ls-tree -r --name-only "origin/$BRANCH" | while IFS= read -r f; do
+        # --full-tree: list from the repository root regardless of cwd. Belt and
+        # braces alongside the cd "$HOME" above.
+        cfg ls-tree -r --full-tree --name-only "origin/$BRANCH" | while IFS= read -r f; do
             # A file collides if it is present in $HOME but not yet tracked.
             if [ -e "$HOME/$f" ] &&
                ! cfg ls-files --error-unmatch "$f" >/dev/null 2>&1; then
