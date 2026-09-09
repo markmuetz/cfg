@@ -1,3 +1,7 @@
+# readline config -- bash only. zsh does not read this file; the equivalent
+# bindings are set with bindkey/zstyle in the "Key bindings" section of ~/.zshrc.
+# Keep the two in step.
+
 # PageUp/PageDown
 #"\e[5~": history-search-backward
 #"\e[6~": history-search-forward

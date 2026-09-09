@@ -1,0 +1,247 @@
+# Shared shell config, sourced by both ~/.bashrc and ~/.zshrc.
+#
+# MUST stay portable between bash and zsh:
+#   - no shopt, no `type -P`, no bash PS1 escapes
+#   - no arrays, no bash- or zsh-only parameter expansions
+#   - use $_shrc_host, not $HOSTNAME (zsh does not set HOSTNAME) or $HOST (bash
+#     does not set HOST)
+# Shell-specific settings (prompt, history files, completion, key bindings) live
+# in ~/.bashrc and ~/.zshrc.
+
+# --- Environment probes ---------------------------------------------------
+# Set once here so nothing downstream has to care which shell/OS it is on.
+
+if [ -n "$ZSH_VERSION" ]; then
+    _shrc_shell=zsh
+elif [ -n "$BASH_VERSION" ]; then
+    _shrc_shell=bash
+else
+    _shrc_shell=sh
+fi
+
+# bash sets HOSTNAME, zsh sets HOST, neither is guaranteed: fall back to uname.
+_shrc_host="${HOSTNAME:-${HOST:-$(uname -n)}}"
+_shrc_os="$(uname -s)"
+
+# --- Helpers --------------------------------------------------------------
+
+# _shrc_have <cmd> -- true if cmd exists. Replaces `type -P`, which zsh lacks.
+_shrc_have() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# _shrc_conda_init <root> -- activate a conda install, using the correct hook
+# for the current shell. Silently does nothing if <root> is not there, so the
+# same call is safe on a machine where conda has been removed.
+_shrc_conda_init() {
+    _conda_root="$1"
+    if [ ! -d "$_conda_root" ]; then
+        unset _conda_root
+        return
+    fi
+    __conda_setup="$("$_conda_root/bin/conda" "shell.${_shrc_shell}" hook 2>/dev/null)"
+    if [ $? -eq 0 ]; then
+        eval "$__conda_setup"
+    elif [ -f "$_conda_root/etc/profile.d/conda.sh" ]; then
+        . "$_conda_root/etc/profile.d/conda.sh"
+    else
+        export PATH="$_conda_root/bin:$PATH"
+    fi
+    unset __conda_setup _conda_root
+}
+
+# --- Environment ----------------------------------------------------------
+
+# _shrc_path_append <dir> -- append to PATH only if not already on it, so that
+# re-sourcing this file (or a login shell that reads it twice) can't build up a
+# PATH full of duplicates.
+_shrc_path_append() {
+    [ -d "$1" ] || return
+    case ":$PATH:" in
+        *":$1:"*) ;;
+        *) export PATH="$PATH:$1" ;;
+    esac
+}
+
+_shrc_path_append "$HOME/bin"
+_shrc_path_append "$HOME/.local/bin"
+
+# History size. The history *file* settings differ between shells and are set
+# in ~/.bashrc and ~/.zshrc respectively.
+export HISTSIZE=1000000
+
+# juliaup, if installed. Was previously a hardcoded /home/markmuetz path, which
+# is wrong on every machine where the username is not markmuetz.
+if [ -d "$HOME/.juliaup/bin" ]; then
+    case ":$PATH:" in
+        *":$HOME/.juliaup/bin:"*) ;;
+        *) export PATH="$HOME/.juliaup/bin:$PATH" ;;
+    esac
+fi
+
+# Export each Academic project dir as $<projname> for quick cd-ing.
+if [ -d "$HOME/Dropbox/Academic/Projects" ]; then
+    for projdir in "$HOME"/Dropbox/Academic/Projects/*; do
+        [ -d "$projdir" ] || continue
+        proj=$(basename "$projdir")
+        # Skip anything that is not a valid shell identifier.
+        case "$proj" in
+            *[!A-Za-z0-9_]*|[0-9]*) continue ;;
+        esac
+        eval "export $proj=\"\$projdir\""
+    done
+    unset projdir proj
+fi
+
+# --- Colours --------------------------------------------------------------
+# GNU defaults; .shrc.darwin overrides these for BSD userland.
+
+# A function so .shrc.darwin can re-run it after putting GNU coreutils on PATH.
+_shrc_set_colours() {
+    if _shrc_have dircolors; then
+        if [ -f "$HOME/.dir_colors" ]; then
+            eval "$(dircolors -b "$HOME/.dir_colors")"
+        elif [ -f /etc/DIR_COLORS ]; then
+            eval "$(dircolors -b /etc/DIR_COLORS)"
+        else
+            eval "$(dircolors -b)"
+        fi
+    fi
+}
+_shrc_set_colours
+
+alias ls='ls --color=auto'
+alias grep='grep --colour=auto'
+
+# Drop any existing alias first so the check below sees the real binary (or its
+# absence) rather than an alias left over from a previous source of this file.
+unalias rgrep 2>/dev/null
+if _shrc_have rgrep; then
+    alias rgrep='rgrep --colour=auto'
+else
+    alias rgrep='grep -r'
+fi
+
+# --- Aliases --------------------------------------------------------------
+
+alias lsf='readlink -f'
+
+if _shrc_have fcm; then
+    alias svn='echo "WARNING, using svn not fcm"; svn'
+fi
+
+if _shrc_have git; then
+    alias cfg='git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
+else
+    alias cfg='echo "cfg not available: no git"'
+fi
+
+# GNU vs BSD flag differences are handled in .shrc.darwin.
+alias du-sort-dirs="du -h --max-depth=1|sort -hr"
+
+# --- Functions ------------------------------------------------------------
+
+# Set the terminal title.
+_shrc_title() {
+    printf '\033]0;%s\007' "$1"
+}
+
+jasmin-sci() {
+    local SERVER TMUX_SESS
+    SERVER=$1
+    if [ -z "$2" ]; then
+        _shrc_title "jasmin-sci-${SERVER}"
+        # N.B. automatically uses proxy due to .ssh/config setup for *.jasmin.ac.uk
+        ssh "sci-${SERVER}.jasmin.ac.uk"
+    else
+        TMUX_SESS=$2
+        _shrc_title "jasmin-sci-${SERVER} ${TMUX_SESS}"
+        ssh "sci-${SERVER}.jasmin.ac.uk" -t \
+            "/home/users/mmuetz/miniconda3/envs/tmux_env/bin/tmux new-session -As ${TMUX_SESS}"
+    fi
+}
+
+jasmin-mass() {
+    _shrc_title "JASMIN-MASS"
+    # N.B. automatically uses proxy due to .ssh/config setup for *.jasmin.ac.uk
+    ssh mass-cli.jasmin.ac.uk
+}
+
+monsoonhpc() {
+    local LOGIN_SERVER TMUX_SESS
+    # Note, this relies heavily on rules in .ssh/config.
+    if [ -z "$1" ]; then
+        # Round robin login server.
+        ssh monsoonhpc
+    else
+        LOGIN_SERVER=$1
+        # e.g. login01-12
+        if [ -z "$2" ]; then
+            _shrc_title "monsoon-${LOGIN_SERVER}"
+            ssh "${LOGIN_SERVER}"
+        else
+            TMUX_SESS=$2
+            _shrc_title "monsoon-${LOGIN_SERVER} ${TMUX_SESS}"
+            ssh "${LOGIN_SERVER}" -t "tmux new-session -As ${TMUX_SESS}"
+        fi
+    fi
+}
+
+racc-cluster() {
+    _shrc_title "RACC-CLUSTER"
+    # N.B. automatically uses proxy due to .ssh/config setup for *.rdg.ac.uk
+    ssh racc-login.rdg.ac.uk
+}
+
+cfg-check() {
+    local DOTFILES_REPO LOCAL_HASH REMOTE_HASH
+    DOTFILES_REPO=https://github.com/markmuetz/cfg/
+    LOCAL_HASH=$(cfg rev-parse HEAD)
+    REMOTE_HASH=$(git ls-remote $DOTFILES_REPO|grep HEAD|awk '{print $1}')
+    if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
+        echo "Dotfiles out-of-date with $DOTFILES_REPO"
+    else
+        echo "Dotfiles up-to-date with $DOTFILES_REPO"
+    fi
+    if [ -n "$(cfg status --porcelain)" ]; then
+        echo "There are uncommitted changes"
+    fi
+}
+
+# cdup N === cd ../../ (N times)
+cdup() {
+    local count ups i
+    count=${1:-1}
+    ups=""
+    i=1
+    while [ "$i" -le "$count" ]; do
+        ups="${ups}../"
+        i=$((i + 1))
+    done
+    cd "$ups" || return
+}
+
+# --- Per-OS and per-site config -------------------------------------------
+# Sourced last so they can override anything above.
+
+if [ "$_shrc_os" = "Darwin" ] && [ -f "$HOME/.shrc.darwin" ]; then
+    . "$HOME/.shrc.darwin"
+fi
+
+# Sentinel file rather than a hostname match: JASMIN sci nodes have
+# unpredictable hostnames (e.g. sci8 reports as hostXXX).
+if [ -e "$HOME/.i_am_on_jasmin" ] && [ -f "$HOME/.shrc.jasmin.sh" ]; then
+    . "$HOME/.shrc.jasmin.sh"
+fi
+
+case "$_shrc_host" in
+    mistakenot|zerogravitas|breakeven)
+        [ -f "$HOME/.shrc.conda.sh" ] && . "$HOME/.shrc.conda.sh"
+        ;;
+    racc-login*)
+        [ -f "$HOME/.shrc.racc.sh" ] && . "$HOME/.shrc.racc.sh"
+        ;;
+    exvmsrose.monsoon-metoffice.co.uk|xcslc*)
+        [ -f "$HOME/.shrc.monsoon.sh" ] && . "$HOME/.shrc.monsoon.sh"
+        ;;
+esac
