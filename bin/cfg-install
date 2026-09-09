@@ -97,32 +97,34 @@ cfg show-ref --verify --quiet "refs/remotes/origin/$BRANCH" \
 # Determined by comparing the tree against the working copy rather than by
 # scraping git's error text, which is brittle and locale-dependent.
 
-if [ "$FIRST_INSTALL" = yes ]; then
-    step "Checking for existing dotfiles that would be overwritten"
+# Runs on every path, not just first install: an update that introduces a new
+# tracked file (say .zshrc) fails the same way if an untracked one is already
+# sitting there, and git reports that as a merge failure indistinguishable from
+# a diverged branch.
+step "Checking for existing dotfiles that would be overwritten"
 
-    COLLISIONS=$(
-        # --full-tree: list from the repository root regardless of cwd. Belt and
-        # braces alongside the cd "$HOME" above.
-        cfg ls-tree -r --full-tree --name-only "origin/$BRANCH" | while IFS= read -r f; do
-            # A file collides if it is present in $HOME but not yet tracked.
-            if [ -e "$HOME/$f" ] &&
-               ! cfg ls-files --error-unmatch "$f" >/dev/null 2>&1; then
-                printf '%s\n' "$f"
-            fi
-        done
-    )
+COLLISIONS=$(
+    # --full-tree: list from the repository root regardless of cwd. Belt and
+    # braces alongside the cd "$HOME" above.
+    cfg ls-tree -r --full-tree --name-only "origin/$BRANCH" | while IFS= read -r f; do
+        # A file collides if it is present in $HOME but not yet tracked.
+        if [ -e "$HOME/$f" ] &&
+           ! cfg ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+            printf '%s\n' "$f"
+        fi
+    done
+)
 
-    if [ -n "$COLLISIONS" ]; then
-        BACKUP="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)"
-        say "  Moving these into $BACKUP (relative paths preserved):"
-        printf '%s\n' "$COLLISIONS" | while IFS= read -r f; do
-            mkdir -p "$BACKUP/$(dirname "$f")"
-            mv "$HOME/$f" "$BACKUP/$f"
-            say "    $f"
-        done
-    else
-        say "  None -- nothing to back up"
-    fi
+if [ -n "$COLLISIONS" ]; then
+    BACKUP="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)"
+    say "  Moving these into $BACKUP (relative paths preserved):"
+    printf '%s\n' "$COLLISIONS" | while IFS= read -r f; do
+        mkdir -p "$BACKUP/$(dirname "$f")"
+        mv "$HOME/$f" "$BACKUP/$f"
+        say "    $f"
+    done
+else
+    say "  None -- nothing to back up"
 fi
 
 # --- Deploy ---------------------------------------------------------------
@@ -146,7 +148,7 @@ else
         say "  Local changes present, not merging. Resolve with:"
         say "      cfg status"
         say "      cfg diff"
-    elif cfg merge --ff-only --quiet "origin/$BRANCH" 2>/dev/null; then
+    elif MERGE_ERR=$(cfg merge --ff-only --quiet "origin/$BRANCH" 2>&1); then
         AFTER=$(cfg rev-parse HEAD)
         if [ "$BEFORE" = "$AFTER" ]; then
             say "  Already up to date with origin/$BRANCH"
@@ -156,8 +158,14 @@ else
                 "-> $(cfg rev-parse --short HEAD)"
         fi
     else
-        say "  Cannot fast-forward (branch has diverged). Inspect with:"
-        say "      cfg log --oneline HEAD..origin/$BRANCH"
+        # Don't assert a cause -- "not possible to fast-forward" (genuine
+        # divergence) and "untracked working tree files would be overwritten"
+        # are different problems and the old message claimed the former for
+        # both. Show what git actually said.
+        say "  Could not fast-forward. git said:"
+        printf '%s\n' "$MERGE_ERR" | sed 's/^/      /'
+        say "  Behind by $(cfg rev-list --count "HEAD..origin/$BRANCH") commit(s);" \
+            "ahead by $(cfg rev-list --count "origin/$BRANCH..HEAD")."
     fi
 fi
 
