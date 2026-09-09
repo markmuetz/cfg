@@ -152,11 +152,11 @@ jasmin-sci() {
     if [ -z "$2" ]; then
         _shrc_title "jasmin-sci-${SERVER}"
         # N.B. automatically uses proxy due to .ssh/config setup for *.jasmin.ac.uk
-        ssh "sci-${SERVER}.jasmin.ac.uk"
+        ssh "${SERVER}.jasmin.ac.uk"
     else
         TMUX_SESS=$2
-        _shrc_title "jasmin-sci-${SERVER} ${TMUX_SESS}"
-        ssh "sci-${SERVER}.jasmin.ac.uk" -t \
+        _shrc_title "jasmin-${SERVER} ${TMUX_SESS}"
+        ssh "${SERVER}.jasmin.ac.uk" -t \
             "/home/users/mmuetz/miniconda3/envs/tmux_env/bin/tmux new-session -As ${TMUX_SESS}"
     fi
 }
