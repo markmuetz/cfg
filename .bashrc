@@ -18,17 +18,33 @@ fi
 
 # --- Prompt ---------------------------------------------------------------
 # The zsh equivalent is PROMPT in ~/.zshrc -- keep the two looking the same.
+#
+# ~/.compname overrides the hostname (else \h), ~/.username overrides the
+# account name (else markmuetz). See the fuller note in ~/.zshrc: the local
+# account differs per machine and \u would show whichever it happens to be.
+
+if [ -f "$HOME/.compname" ]; then
+    _compname=$(cat "$HOME/.compname")
+else
+    _compname='\h'
+fi
+if [ -f "$HOME/.username" ]; then
+    _username=$(cat "$HOME/.username")
+else
+    _username='markmuetz'
+fi
 
 if [ -t 1 ] && [ "$TERM" != "dumb" ]; then
     if [ "${EUID}" = 0 ]; then
-        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;31m\]\h\[\033[01;34m\] \W \$\[\033[00m\] '
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;31m\]'"${_username}@${_compname}"'\[\033[01;34m\] \W \$\[\033[00m\] '
     else
-        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[01;34m\] \w \$\[\033[00m\] '
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]'"${_username}@${_compname}"'\[\033[01;34m\] \w \$\[\033[00m\] '
     fi
 else
-    # Show root@ when we don't have colours.
-    PS1='\u@\h \w \$ '
+    PS1="${_username}@${_compname}"' \w \$ '
 fi
+
+unset _compname _username
 
 # --- History --------------------------------------------------------------
 # HISTSIZE is set in .shrc.common; HISTFILESIZE is bash-only (zsh uses SAVEHIST).

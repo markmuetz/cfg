@@ -12,15 +12,22 @@
 
 # --- Prompt ---------------------------------------------------------------
 # Mirrors the PS1 set in ~/.bashrc: green user@host, blue cwd.
-# ~/.compname, if present, overrides the hostname with a short friendly name.
+#
+# Neither half uses the machine's own names by default:
+#   ~/.compname overrides the hostname with a short friendly name (else %m).
+#   ~/.username overrides the account name (else markmuetz). The local account
+#   is markmuetz, mmuetz or ln914101@reading.ac.uk depending on the machine,
+#   and %n would show whichever it happens to be -- the Reading one in
+#   particular renders as ln914101@reading.ac.uk@host, which is unreadable.
 
 _compname=$(cat "$HOME/.compname" 2>/dev/null || echo '%m')
+_username=$(cat "$HOME/.username" 2>/dev/null || echo 'markmuetz')
 if [[ $EUID == 0 ]]; then
-    PROMPT="%B%F{red}%n@${_compname}%f %F{blue}%~%f %#%b "
+    PROMPT="%B%F{red}${_username}@${_compname}%f %F{blue}%~%f %#%b "
 else
-    PROMPT="%B%F{green}%n@${_compname}%f %F{blue}%~%f %#%b "
+    PROMPT="%B%F{green}${_username}@${_compname}%f %F{blue}%~%f %#%b "
 fi
-unset _compname
+unset _compname _username
 
 # --- History --------------------------------------------------------------
 # HISTSIZE (in-memory) is set in .shrc.common. SAVEHIST is the on-disk limit,
