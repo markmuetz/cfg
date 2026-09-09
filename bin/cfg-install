@@ -130,7 +130,12 @@ fi
 step "Checking out $BRANCH"
 
 if [ "$FIRST_INSTALL" = yes ]; then
-    cfg checkout "$BRANCH"
+    # -B resets the local branch to the freshly-fetched remote state before
+    # checking out. The local ref dates from clone time and can be behind if the
+    # remote moved since (or if an earlier run failed part-way), and the backup
+    # scan above compares against origin/$BRANCH -- so without this the tree
+    # deployed need not be the tree the collisions were computed from.
+    cfg checkout -q -B "$BRANCH" "origin/$BRANCH"
     cfg branch --quiet --set-upstream-to="origin/$BRANCH" "$BRANCH"
     say "  Checked out, tracking origin/$BRANCH"
 else
