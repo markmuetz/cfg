@@ -4,7 +4,7 @@ New Computer Setup
 has git
 -------
 
-    curl -fsSL https://raw.githubusercontent.com/markmuetz/cfg/master/bin/cfg-install | sh
+    curl -fsSL https://raw.githubusercontent.com/markmuetz/cfg/main/bin/cfg-install | sh
 
 That's it. `cfg-install` clones the bare repo to `~/.cfg`, sets the work tree to
 `$HOME`, moves any colliding dotfiles into a timestamped `~/.cfg-backup/`, and
@@ -16,7 +16,9 @@ fast-forward-only, and refuses to merge over local changes:
 
     cfg-install
 
-(`cfg-check` reports whether you are behind; `cfg-install` is the remedy.)
+(`cfg-check` reports whether you are behind; `cfg-install` is the remedy. A
+machine still on the old `master` branch needs the curl command instead -- see
+`check_cfg_up_to_date.md`.)
 
 ### Day-to-day
 
@@ -47,10 +49,10 @@ determined one. Check what you are staging before you commit.
 no git
 ------
 
-    wget https://github.com/markmuetz/cfg/archive/master.zip -O cfg-master.zip
-    unzip cfg-master.zip
-    cp -a cfg-master/. "$HOME"/
-    rm -rf "$HOME/.github" cfg-master cfg-master.zip
+    wget https://github.com/markmuetz/cfg/archive/main.zip -O cfg-main.zip
+    unzip cfg-main.zip
+    cp -a cfg-main/. "$HOME"/
+    rm -rf "$HOME/.github" cfg-main cfg-main.zip
 
 No version control this way, so no `cfg` alias and no updates -- prefer the git
 route wherever possible.
@@ -95,12 +97,9 @@ repo root would make every `git add` in that clone need `-f` too. The leading
 dot only keeps it out of a plain `ls ~` -- git treats a file as an ignore file
 only when it is named exactly `.gitignore`, so the suffix is what matters.
 
-It was `gitignore.home`, no leading dot, before Sept 2026. Updating across that
-rename takes two runs of `cfg-install`: the first fast-forwards (which renames
-the file and updates `~/bin/cfg-install`) but is still executing the old script,
-which then warns that `~/gitignore.home` is missing and skips the install step.
-`~/.gitignore` is left alone in the meantime, so nothing is unprotected; the
-second run does the sync. A machine still showing `~/gitignore.home` is behind.
+It was `gitignore.home`, no leading dot, before Sept 2026. See
+`check_cfg_up_to_date.md` for updating a machine across that rename and the
+`master` -> `main` branch rename that came with it.
 
 `.shrc.common` must stay portable between bash and zsh -- no `shopt`, no `type
 -P`, no bash prompt escapes, and use `$_shrc_host` rather than `$HOSTNAME`

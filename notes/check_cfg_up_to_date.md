@@ -18,9 +18,9 @@ Paste this whole block. It works under bash and zsh, and from any directory:
     G() { git --git-dir="$HOME/.cfg" --work-tree="$HOME" "$@"; }
     G fetch -q origin
     echo "HEAD          $(G rev-parse --short HEAD)"
-    echo "origin/master $(G rev-parse --short origin/master)"
-    echo "behind        $(G rev-list --count HEAD..origin/master)"
-    echo "ahead         $(G rev-list --count origin/master..HEAD)"
+    echo "origin/main   $(G rev-parse --short origin/main)"
+    echo "behind        $(G rev-list --count HEAD..origin/main)"
+    echo "ahead         $(G rev-list --count origin/main..HEAD)"
     echo "dirty         $(G status --porcelain | wc -l | tr -d ' ')"
 
 Up to date means: `behind 0`, `ahead 0`, `dirty 0`.
@@ -54,7 +54,7 @@ while the Mac is zsh, so test the shell you are actually in.)
 If it is behind
 ---------------
 
-    curl -fsSL https://raw.githubusercontent.com/markmuetz/cfg/master/bin/cfg-install | sh
+    curl -fsSL https://raw.githubusercontent.com/markmuetz/cfg/main/bin/cfg-install | sh
 
 `cfg-install` is idempotent and fast-forward-only, and is the update path
 as well as the installer. It also repairs older deployments in passing: it
@@ -66,12 +66,34 @@ If the box has no outbound HTTPS, use the checked-out copy instead:
 
     cd "$HOME" && sh ~/bin/cfg-install
 
-Machines last deployed before Sept 2026 need it run twice, because
-`gitignore.home` was renamed to `.gitignore.home`: the first run renames the
-file but is still executing the old script, which then warns that
-`~/gitignore.home` is missing and skips installing `~/.gitignore` (the existing
-one is left in place, so nothing is unprotected). The second run, now the new
-script, syncs it. A machine still showing `~/gitignore.home` is behind.
+### Machines deployed before Sept 2026
+
+Two renames landed in Sept 2026: the branch `master` -> `main`, and
+`gitignore.home` -> `.gitignore.home`. On a machine still on `master` (`G
+symbolic-ref --short HEAD` says so, or `~/gitignore.home` is present), **use
+the curl command above, not `~/bin/cfg-install`.** The new script migrates the
+branch and syncs `~/.gitignore` in a single run.
+
+The machine's own `~/bin/cfg-install` is the old script, and it cannot see the
+branch rename: its `git fetch` does not prune, so the deleted `origin/master`
+ref lingers, and the old script fast-forwards to that and reports "Already up
+to date with origin/master" -- indefinitely, while being behind. The check block
+above does catch it (`behind` is counted against `origin/main`), as does
+`cfg-check`.
+
+If the curl URL is unreachable, migrate the branch by hand and then run the old
+script twice. The first run fast-forwards but, being the old script, warns that
+`~/gitignore.home` is missing and skips the `~/.gitignore` sync (the existing
+one stays in place, so nothing is unprotected); the second run is the new
+script and does it:
+
+    cd "$HOME"
+    G() { git --git-dir="$HOME/.cfg" --work-tree="$HOME" "$@"; }
+    G fetch --prune origin
+    G branch -m master main
+    G branch --set-upstream-to=origin/main main
+    sh ~/bin/cfg-install
+    sh ~/bin/cfg-install
 
 Note the raw.githubusercontent.com URL is CDN-cached for a few minutes
 after a push. If a fix was just committed, confirm it is in the copy you

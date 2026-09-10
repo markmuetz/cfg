@@ -6,7 +6,7 @@
 # overwritten on first install is moved into a timestamped ~/.cfg-backup/.
 #
 # On a new machine:
-#     curl -fsSL https://raw.githubusercontent.com/markmuetz/cfg/master/bin/cfg-install | sh
+#     curl -fsSL https://raw.githubusercontent.com/markmuetz/cfg/main/bin/cfg-install | sh
 # or, once the repo is checked out:
 #     ~/bin/cfg-install
 #
@@ -72,12 +72,17 @@ say "  status.showUntrackedFiles = no"
 
 # `git clone --bare` sets no fetch refspec, which leaves you with no
 # remote-tracking branches: `cfg status` can never report ahead/behind and
-# `cfg log origin/master` does not resolve. Add it explicitly.
+# `cfg log origin/main` does not resolve. Add it explicitly.
 cfg config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
 say "  remote.origin.fetch = +refs/heads/*:refs/remotes/origin/*"
 
 step "Fetching"
-cfg fetch --quiet origin
+# --prune matters after a branch rename: a plain fetch leaves the deleted
+# refs/remotes/origin/master in place forever, so the detection below keeps
+# resolving it and every run then reports "Already up to date" against a ref the
+# remote no longer has. Silent staleness is the worst failure mode this script
+# has, so prune rather than let a dead ref look healthy.
+cfg fetch --prune --quiet origin
 say "  done"
 
 # --- Work out which branch to deploy --------------------------------------
@@ -87,7 +92,32 @@ if [ -n "${CFG_BRANCH:-}" ]; then
 elif BRANCH=$(cfg symbolic-ref --short HEAD 2>/dev/null); then
     :
 else
-    BRANCH=master
+    BRANCH=main
+fi
+
+# master -> main (Sept 2026). A machine deployed before the rename sits on a
+# local `master` whose remote counterpart is gone, and the prune above has just
+# dropped the stale tracking ref -- so without this it would die with "branch
+# 'master' does not exist" and stay stuck. Migrate it instead: an old deployment
+# cannot fix itself any other way, because its own ~/bin/cfg-install predates
+# this code and only ever looks at origin/master.
+#
+# Renaming a branch does not touch the work tree, so this is safe on a dirty
+# deployment; the fast-forward below still refuses to merge over local edits.
+if [ "$BRANCH" = master ] &&
+   ! cfg show-ref --verify --quiet refs/remotes/origin/master &&
+   cfg show-ref --verify --quiet refs/remotes/origin/main; then
+    step "Migrating this deployment from master to main"
+    if cfg show-ref --verify --quiet refs/heads/main; then
+        cfg checkout -q main \
+            || die "cannot switch to local 'main' -- resolve with 'cfg status'"
+        say "  Local 'main' already existed -- switched to it"
+    else
+        cfg branch -m master main
+        say "  Renamed local branch master -> main"
+    fi
+    cfg branch --quiet --set-upstream-to=origin/main main
+    BRANCH=main
 fi
 
 cfg show-ref --verify --quiet "refs/remotes/origin/$BRANCH" \
