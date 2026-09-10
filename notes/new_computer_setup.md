@@ -99,3 +99,9 @@ repo root would make every `git add` in that clone need `-f` too.
 
 Site files are picked by `~/.i_am_on_jasmin` (sentinel file) or by a `case` on
 `$_shrc_host` at the bottom of `.shrc.common`.
+
+
+Checking a machine is up to date
+--------------------------------
+
+See `check_cfg_up_to_date.md`.
