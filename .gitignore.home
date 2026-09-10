@@ -5,6 +5,10 @@
 # too. The deny-all is a property of the deployment, so the installer copies it
 # into place and re-syncs it on each run.
 #
+# The leading dot is only so it does not clutter a plain `ls ~`; the suffix is
+# what does the real work, since git treats a file as an ignore file only when
+# it is named exactly `.gitignore`.
+#
 # Deny everything by default. Without this, a single `cfg add -A` stages the
 # whole home directory -- ssh keys, Documents, .cfg itself -- and this repo is
 # public. Note that `status.showUntrackedFiles=no` does NOT protect against

@@ -27,7 +27,7 @@ fast-forward-only, and refuses to merge over local changes:
 
 ### Why `add -f`
 
-`~/.gitignore` (installed from `gitignore.home`) ignores `*`. That is
+`~/.gitignore` (installed from `.gitignore.home`) ignores `*`. That is
 deliberate: the work tree is your entire home directory, and this repo is
 public on GitHub. Without it, one `cfg add -A` stages ~99 files including
 `.ssh/` key material, `Documents/`, and `.cfg/` itself.
@@ -86,12 +86,21 @@ Shell config layout
      |- .shrc.jasmin.sh / .shrc.racc.sh / .shrc.conda.sh / .shrc.monsoon.sh
 
     bin/cfg-install   installer/updater (POSIX sh, no bashisms)
-    gitignore.home    deployed to ~/.gitignore by cfg-install
+    .gitignore.home   deployed to ~/.gitignore by cfg-install
 
-`gitignore.home` is tracked under that name rather than as `.gitignore` on
+`.gitignore.home` is tracked under that name rather than as `.gitignore` on
 purpose: the work tree is `$HOME` in a deployment but an ordinary directory in
 a development clone (e.g. `~/projects/cfg`), and a deny-all committed at the
-repo root would make every `git add` in that clone need `-f` too.
+repo root would make every `git add` in that clone need `-f` too. The leading
+dot only keeps it out of a plain `ls ~` -- git treats a file as an ignore file
+only when it is named exactly `.gitignore`, so the suffix is what matters.
+
+It was `gitignore.home`, no leading dot, before Sept 2026. Updating across that
+rename takes two runs of `cfg-install`: the first fast-forwards (which renames
+the file and updates `~/bin/cfg-install`) but is still executing the old script,
+which then warns that `~/gitignore.home` is missing and skips the install step.
+`~/.gitignore` is left alone in the meantime, so nothing is unprotected; the
+second run does the sync. A machine still showing `~/gitignore.home` is behind.
 
 `.shrc.common` must stay portable between bash and zsh -- no `shopt`, no `type
 -P`, no bash prompt escapes, and use `$_shrc_host` rather than `$HOSTNAME`

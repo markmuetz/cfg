@@ -170,13 +170,13 @@ else
 fi
 
 # --- Install the deny-all ~/.gitignore ------------------------------------
-# Tracked as gitignore.home rather than .gitignore so that it does not also
+# Tracked as .gitignore.home rather than .gitignore so that it does not also
 # smother development clones of this repo. Copied, and re-synced on every run
-# so an edit to gitignore.home propagates on the next cfg-install.
+# so an edit to .gitignore.home propagates on the next cfg-install.
 
 step "Installing ~/.gitignore"
 
-SRC=$HOME/gitignore.home
+SRC=$HOME/.gitignore.home
 DEST=$HOME/.gitignore
 
 if [ ! -f "$SRC" ]; then

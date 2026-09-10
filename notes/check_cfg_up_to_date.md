@@ -66,6 +66,13 @@ If the box has no outbound HTTPS, use the checked-out copy instead:
 
     cd "$HOME" && sh ~/bin/cfg-install
 
+Machines last deployed before Sept 2026 need it run twice, because
+`gitignore.home` was renamed to `.gitignore.home`: the first run renames the
+file but is still executing the old script, which then warns that
+`~/gitignore.home` is missing and skips installing `~/.gitignore` (the existing
+one is left in place, so nothing is unprotected). The second run, now the new
+script, syncs it. A machine still showing `~/gitignore.home` is behind.
+
 Note the raw.githubusercontent.com URL is CDN-cached for a few minutes
 after a push. If a fix was just committed, confirm it is in the copy you
 are about to run before trusting it.
