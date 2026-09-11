@@ -32,7 +32,16 @@ if [ -n "$BASH_VERSION" ] && [ -f "$HOME/.bashrc" ]; then
     . "$HOME/.bashrc"
 fi
 
-# Set PATH so it includes user's private bin if it exists.
-if [ -d "$HOME/bin" ] ; then
-    PATH="$HOME/bin:$PATH"
-fi
+# .bashrc returns early in non-interactive login shells (e.g. SLURM scripts
+# with `#!/bin/bash -l`), so put the user bin dirs on PATH here as well.
+# Appended, and skipped if .shrc.common already added them.
+for _d in "$HOME/bin" "$HOME/.local/bin"; do
+    if [ -d "$_d" ]; then
+        case ":$PATH:" in
+            *":$_d:"*) ;;
+            *) PATH="$PATH:$_d" ;;
+        esac
+    fi
+done
+unset _d
+export PATH

@@ -79,6 +79,15 @@ if [ -d "$HOME/.juliaup/bin" ]; then
     esac
 fi
 
+# Rust (rustup), if installed. Replaces the `. "$HOME/.cargo/env"` line rustup
+# appends to .bash_profile/.profile.
+if [ -d "$HOME/.cargo/bin" ]; then
+    case ":$PATH:" in
+        *":$HOME/.cargo/bin:"*) ;;
+        *) export PATH="$HOME/.cargo/bin:$PATH" ;;
+    esac
+fi
+
 # pixi (and tools installed with `pixi global install`, e.g. gh), if installed.
 if [ -d "$HOME/.pixi/bin" ]; then
     case ":$PATH:" in
@@ -164,8 +173,10 @@ jasmin-sci() {
     else
         TMUX_SESS=$2
         _shrc_title "jasmin-${SERVER} ${TMUX_SESS}"
+        # The remote command runs in a non-interactive shell (no .shrc.common, so
+        # no ~/.pixi/bin on PATH): give tmux's full path. ~ expands remotely.
         ssh "${SERVER}.jasmin.ac.uk" -t \
-            "/home/users/mmuetz/miniconda3/envs/tmux_env/bin/tmux new-session -As ${TMUX_SESS}"
+            "~/.pixi/bin/tmux new-session -As ${TMUX_SESS}"
     fi
 }
 
