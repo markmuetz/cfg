@@ -46,6 +46,12 @@ let g:vimtex_compiler_latexmk = {'out_dir': '_build'}
 " present in v2.18), so you get an error instead of the message.
 let g:vimtex_compiler_enabled = executable('latexmk')
 let g:vimtex_syntax_nospell_comments = 1
+" View in Skim where installed (macOS): it reloads when latexmk rewrites the
+" PDF, and \lv scrolls it to the cursor's position -- Preview does neither.
+" Skim's own "reload automatically" setting: see notes/install_latex.md.
+if has('mac') && isdirectory('/Applications/Skim.app')
+  let g:vimtex_view_method = 'skim'
+endif
 
 let g:fortran_free_source = 1
 let g:fortran_have_tabs = 1

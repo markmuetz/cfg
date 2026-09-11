@@ -30,5 +30,18 @@ Plus text objects and edits that understand LaTeX: `ie`/`ae` (environment),
 `i$`/`a$` (maths), `cse` / `dse` (change / delete the surrounding
 environment), `]]` / `[[` (next / previous section). `:help vimtex` for the rest.
 
-Preview does not reload a PDF that changes under it; Skim does, and vimtex
-supports it with `let g:vimtex_view_method = 'skim'`.
+On macOS, `\lv` uses Skim when it is installed (see `.vimrc`): unlike Preview it
+reloads the PDF each time latexmk rewrites it, and `\lv` scrolls it to the
+cursor's position. Install it and switch on its reload settings (quit Skim
+first -- it overwrites these on exit):
+
+    brew install --cask skim
+    defaults write net.sourceforge.skim-app.skim SKAutoCheckFileUpdate -bool true
+    defaults write net.sourceforge.skim-app.skim SKAutoReloadFileUpdate -bool true
+
+Jumping the other way, from a Cmd-Shift-click in Skim to the line in Vim, needs
+a Vim built with +clientserver, which macOS's Vim is not.
+
+Skim (like Preview) cannot show Acrobat "insert text" caret comments -- Apple's
+PDFKit, which both are built on, does not support Caret annotations. Use Adobe
+Acrobat Reader to read co-authors' marked-up drafts.
