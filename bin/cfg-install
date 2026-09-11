@@ -134,12 +134,24 @@ cfg show-ref --verify --quiet "refs/remotes/origin/$BRANCH" \
 step "Checking for existing dotfiles that would be overwritten"
 
 COLLISIONS=$(
-    # --full-tree: list from the repository root regardless of cwd. Belt and
-    # braces alongside the cd "$HOME" above.
-    cfg ls-tree -r --full-tree --name-only "origin/$BRANCH" | while IFS= read -r f; do
-        # A file collides if it is present in $HOME but not yet tracked.
-        if [ -e "$HOME/$f" ] &&
-           ! cfg ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+    # A file collides if the incoming tree has it, it is not tracked yet, and
+    # something is already sitting at that path in $HOME.
+    #
+    # Work out "in the tree but not tracked" as one set difference: the tracked
+    # list is emitted twice, so every tracked path occurs at least twice and
+    # `uniq -u` keeps just the untracked ones. That is two git calls in total.
+    # Asking git about each file in turn cost one process per tracked file --
+    # 15s of every run on a Mac once the vendored Vim plugins pushed the repo
+    # past 1400 files, and far worse on an HPC network filesystem.
+    #
+    # --full-tree / --full-name: repository-root paths regardless of cwd. Belt
+    # and braces alongside the cd "$HOME" above.
+    {
+        cfg ls-files --full-name
+        cfg ls-files --full-name
+        cfg ls-tree -r --full-tree --name-only "origin/$BRANCH"
+    } | LC_ALL=C sort | uniq -u | while IFS= read -r f; do
+        if [ -e "$HOME/$f" ]; then
             printf '%s\n' "$f"
         fi
     done
