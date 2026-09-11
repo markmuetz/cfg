@@ -79,6 +79,14 @@ if [ -d "$HOME/.juliaup/bin" ]; then
     esac
 fi
 
+# pixi (and tools installed with `pixi global install`, e.g. gh), if installed.
+if [ -d "$HOME/.pixi/bin" ]; then
+    case ":$PATH:" in
+        *":$HOME/.pixi/bin:"*) ;;
+        *) export PATH="$HOME/.pixi/bin:$PATH" ;;
+    esac
+fi
+
 # Export each Academic project dir as $<projname> for quick cd-ing.
 if [ -d "$HOME/Dropbox/Academic/Projects" ]; then
     for projdir in "$HOME"/Dropbox/Academic/Projects/*; do

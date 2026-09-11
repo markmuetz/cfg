@@ -107,6 +107,20 @@ Linux without root (JASMIN etc.) -- uv if missing, then:
     conda install -c conda-forge ripgrep fzf    # or release binaries in ~/.local/bin
 
 
+pixi, gh and Claude Code
+------------------------
+
+`.shrc.common` puts `~/.pixi/bin` on PATH when it exists. Install pixi, then
+`pixi global install gh` (git's GitHub credential helper is `gh`), and copy
+the global Claude Code instructions into place:
+
+    curl -fsSL https://pixi.sh/install.sh | sh     # decline its .bashrc edit
+    pixi global install gh
+    mkdir -p ~/.claude && cp ~/notes/claude/CLAUDE.md ~/.claude/CLAUDE.md
+
+Details in `claude/readme.md`.
+
+
 Shell config layout
 -------------------
 
