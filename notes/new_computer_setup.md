@@ -78,6 +78,35 @@ Note macOS ships bash 3.2 (2007) as `/bin/bash`. Nothing here needs bash 4+,
 but `brew install bash` if a script does.
 
 
+Vim plugins, and the tools behind them
+--------------------------------------
+
+The plugins (vim-sensible, ALE, vimtex, fzf.vim) are committed under
+`.vim/pack/vendor/`, so `cfg-install` deploys them like any other file -- no
+plugin manager, nothing to fetch per machine, the same pinned versions
+everywhere. They need Vim 8+. To add, update or drop one, edit the list in
+`bin/vim-plugins`, run it, and commit.
+
+Some rely on programs that are installed per machine. All are optional: the
+config checks for each one and quietly does without.
+
+    rg        :grep, F8 and F9, and fzf's file list      else plain grep
+    fzf       :Files, :Rg, :Buffers, ...                 else no such commands
+    ruff      Python linting as you type (ALE)           else no linting
+    latexmk   vimtex compiling -- see install_latex.md   else \ll is off
+
+macOS:
+
+    brew install ripgrep fzf
+    uv tool install ruff          # later: uv tool upgrade ruff
+
+Linux without root (JASMIN etc.) -- uv if missing, then:
+
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    uv tool install ruff
+    conda install -c conda-forge ripgrep fzf    # or release binaries in ~/.local/bin
+
+
 Shell config layout
 -------------------
 
@@ -88,6 +117,7 @@ Shell config layout
      |- .shrc.jasmin.sh / .shrc.racc.sh / .shrc.conda.sh / .shrc.monsoon.sh
 
     bin/cfg-install   installer/updater (POSIX sh, no bashisms)
+    bin/vim-plugins   vendors the Vim plugins into .vim/pack/vendor/
     .gitignore.home   deployed to ~/.gitignore by cfg-install
 
 `.gitignore.home` is tracked under that name rather than as `.gitignore` on

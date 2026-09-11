@@ -1,5 +1,10 @@
 " ~/.vimrc -- shared by every machine this repo deploys to, so it has to work in
 " older Vims (7.4+) and in terminal Vim under tmux, not just on the Mac.
+"
+" Plugins are vendored into ~/.vim/pack/vendor/start/ by bin/vim-plugins, and
+" need Vim 8+ (7.4 has no packages, so it just runs without them). The external
+" tools some of them use -- rg, fzf, ruff -- are optional per machine: see
+" notes/new_computer_setup.md.
 
 set nocompatible    " a no-op when read as ~/.vimrc, but not under `vim -u`
 
@@ -22,6 +27,9 @@ set tabpagemax=40
 " --- Editing ---------------------------------------------------------------
 
 filetype plugin indent on
+if has('packages')
+  packadd! matchit    " % also jumps if/else/endif, \begin/\end, tags...
+endif
 
 set expandtab softtabstop=4 shiftwidth=4 autoindent
 set textwidth=0 wrapmargin=0    " never hard-wrap while typing
@@ -29,14 +37,64 @@ set hidden                      " switch buffers without saving first
 set autoread                    " pick up files changed outside Vim
 set pastetoggle=<F6>
 
+" LaTeX via vimtex: \ll compiles (continuously), \lv views. See
+" notes/install_latex.md.
 let g:tex_flavor = 'latex'      " a .tex file is LaTeX, not plain TeX
+let g:vimtex_compiler_latexmk = {'out_dir': '_build'}
+" Only where latexmk exists. Otherwise vimtex warns on every .tex file, and its
+" warning code crashes on Vim 9.1 (E684/E128 in vimtex#debug#stacktrace, still
+" present in v2.18), so you get an error instead of the message.
+let g:vimtex_compiler_enabled = executable('latexmk')
+let g:vimtex_syntax_nospell_comments = 1
 
 let g:fortran_free_source = 1
 let g:fortran_have_tabs = 1
 let g:fortran_more_precise = 1
 let g:fortran_do_enddo = 1
 
-let g:NERDTreeIgnore = ['\.pyc$']
+" Python linting as you type, via ALE + ruff (does nothing where ruff is not
+" installed). :ALEFix applies ruff's fixes and formatting on demand -- not on
+" save, where reformatting a whole existing file would bury the real change.
+let g:ale_linters = {'python': ['ruff']}
+let g:ale_fixers = {'python': ['ruff', 'ruff_format']}
+
+" F2's file tree is Vim's built-in netrw.
+let g:netrw_liststyle = 3       " tree view
+let g:netrw_winsize = 25        " % of the width, rather than half the screen
+let g:netrw_list_hide = '\.pyc$'
+let g:netrw_dirhistmax = 0      " no ~/.vim/.netrwhist: it is inside the cfg work tree
+
+" Search with ripgrep where installed: much faster, and skips what .gitignore
+" does. Plain grep otherwise -- not every machine has rg.
+if executable('rg')
+  set grepprg=rg\ --vimgrep
+  set grepformat=%f:%l:%c:%m
+  " fzf's :Files too, unless the shell already chose its source.
+  if empty($FZF_DEFAULT_COMMAND)
+    let $FZF_DEFAULT_COMMAND = 'rg --files'
+  endif
+endif
+
+" fzf.vim (:Files, :Rg, :Buffers, ...) only where the fzf binary exists.
+" Elsewhere its commands would offer to download fzf into ~/.vim.
+if has('packages') && executable('fzf')
+  packadd fzf
+  packadd fzf.vim
+endif
+
+function! s:GrepToTab(word) abort
+  if executable('rg')
+    let l:cmd = 'rg -i --sort=path --glob ' . shellescape('!tags')
+  else
+    let l:cmd = 'grep -ir --exclude=tags --exclude=' . shellescape('*.swp')
+  endif
+  tabnew
+  setlocal buftype=nofile bufhidden=wipe noswapfile
+  call setline(1, systemlist(l:cmd . ' -- ' . shellescape(a:word) . ' .'))
+  " Enter on a result line does what Shift-F9 does. Shift-F9 depends on the
+  " terminal sending xterm's code for it, which not all do (e.g. Terminal.app).
+  nnoremap <buffer> <CR> ^<C-w>gfn
+endfunction
 
 " Keeps the cursor and view where they were: a bare `%s/\s\+$//e` leaves the
 " cursor on the last line it changed, so every save would jump.
@@ -110,7 +168,7 @@ nnoremap <Leader>s :setlocal spell! spelllang=en_gb<CR>
 
 " Function keys. The Ctrl-Shift ones generally only fire in a GUI Vim: most
 " terminals, and tmux, do not pass Ctrl-Shift-F<n> through as a distinct key.
-nnoremap <F2> :NERDTreeToggle<CR>
+nnoremap <F2> :Lexplore<CR>
 nnoremap <F3> :!make<CR><CR>
 nnoremap <C-S-F3> :!make clean<CR><CR>
 " F4 is `remake run`, Python buffers only -- see the autocommands above.
@@ -120,10 +178,14 @@ nnoremap <S-F5> :tabdo edit!<CR>
 " F7: open the citation under the cursor.
 nnoremap <F7> "zyiw:exec '!litman display' shellescape(@z, 1) '2>/dev/null 1>/dev/null'<CR><CR>
 " F8: grep for the word under the cursor into the quickfix list.
-nnoremap <F8> :grep! "\<<cword>\>" . -r<CR>
-" F9: grep for it into a new tab; Shift-F9 then opens the file named at the
-" start of the line, at the first match.
-nnoremap <F9> *N:execute 'tabnew <bar> r ! grep -ir --exclude=tags --exclude=\*.swp '.expand("<cword>")<CR><CR>
+if executable('rg')
+  nnoremap <F8> :grep! -w -- <cword> .<CR>
+else
+  nnoremap <F8> :grep! "\<<cword>\>" . -r<CR>
+endif
+" F9: grep for it, case-insensitively, into a scratch tab; Enter (or Shift-F9)
+" on a result then opens that file, at the first match.
+nnoremap <F9> *N:call <SID>GrepToTab(expand('<cword>'))<CR>
 nnoremap <S-F9> ^<C-w>gfn
 nnoremap <C-S-F9> ^<C-w>gfngT:q!<CR>
 " F12: follow the tag under the cursor in a new tab.

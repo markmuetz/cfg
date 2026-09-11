@@ -1,0 +1,81 @@
+#!/bin/sh
+# Vendor the third-party Vim plugins listed below into .vim/pack/vendor/.
+#
+# They are committed to this repo as plain files rather than fetched by a
+# plugin manager, so cfg-install deploys them to every machine with no extra
+# step and no network access beyond the git fetch it already does, and every
+# machine runs the same pinned version. Vim 8+ loads anything under
+# pack/*/start/ by itself; pack/*/opt/ is loaded only by `packadd`, which
+# .vimrc uses for plugins that are useless without an external program.
+#
+# To add, bump or drop a plugin: edit the list, run this from the repo (a
+# development clone, or $HOME in a deployment), review the diff, and commit.
+# Plugins no longer listed are removed. Each plugin gets a .vendored file
+# recording exactly what was copied.
+#
+#     bin/vim-plugins && git status --short .vim/pack
+
+set -eu
+
+# <start|opt>  <github owner/repo>  <tag or commit>  [<paths to keep>]
+plugins() {
+    sed -e 's/#.*//' -e '/^[[:space:]]*$/d' <<'LIST'
+start  tpope/vim-sensible   v2.0
+start  dense-analysis/ale   v4.0.0
+# Newest release that supports Vim 8.0.1453+. v2.16 needs 8.2.3995 and v2.17+
+# need 9.1, which would lock out older Vims on the Linux boxes.
+start  lervag/vimtex        v2.15
+# opt: .vimrc loads these only where the fzf binary exists. fzf.vim needs the
+# Vim glue from the main fzf repo; take only that, at the version of the fzf
+# binary (brew/conda) it will be talking to.
+opt    junegunn/fzf         v0.74.3                                    plugin doc
+opt    junegunn/fzf.vim     8a0068127ac9ee23d71dab2944ce995726bef462
+LIST
+}
+
+command -v git >/dev/null 2>&1 || { echo "vim-plugins: git not found" >&2; exit 1; }
+command -v vim >/dev/null 2>&1 || { echo "vim-plugins: vim not found" >&2; exit 1; }
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+VENDOR=$ROOT/.vim/pack/vendor
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+plugins | while read -r kind repo ref paths; do
+    case $kind in
+        start|opt) ;;
+        *) echo "vim-plugins: '$kind' is not start or opt ($repo)" >&2; exit 1 ;;
+    esac
+    name=${repo#*/}
+    PACK=$VENDOR/$kind
+    printf '%-14s %-10s ' "$name" "$(printf '%s' "$ref" | cut -c1-10)"
+    git clone -q --filter=blob:none "https://github.com/$repo" "$TMP/$name"
+    git -C "$TMP/$name" -c advice.detachedHead=false checkout -q "$ref"
+    commit=$(git -C "$TMP/$name" rev-parse HEAD)
+
+    rm -rf "${PACK:?}/$name"
+    mkdir -p "$PACK/$name"
+    # `git archive` also honours the plugin's own export-ignore rules.
+    # shellcheck disable=SC2086  # $paths is deliberately word-split
+    git -C "$TMP/$name" archive HEAD $paths | tar -x -C "$PACK/$name"
+    # Test suites and CI config are most of the bulk and none of the plugin.
+    rm -rf "$PACK/$name/test" "$PACK/$name/tests" "$PACK/$name/.github"
+
+    printf 'https://github.com/%s %s %s\n' "$repo" "$ref" "$commit" > "$PACK/$name/.vendored"
+    if [ -d "$PACK/$name/doc" ]; then
+        DOC=$PACK/$name/doc vim -N -u NONE -i NONE -es \
+            -c 'execute "helptags" fnameescape($DOC)' -c 'qa!' </dev/null
+    fi
+    echo "$(git -C "$TMP/$name" rev-parse --short HEAD)  $(find "$PACK/$name" -type f | wc -l | tr -d ' ') files"
+done
+
+# Drop anything no longer in the list (or listed under the other kind).
+for dir in "$VENDOR"/start/*/ "$VENDOR"/opt/*/; do
+    [ -d "$dir" ] || continue
+    kind=$(basename "$(dirname "$dir")")
+    name=$(basename "$dir")
+    if ! plugins | awk -v k="$kind" '$1 == k {print $2}' | sed 's#.*/##' | grep -qx "$name"; then
+        rm -rf "${dir:?}"
+        echo "$kind/$name: removed"
+    fi
+done
