@@ -82,18 +82,41 @@ if has('packages') && executable('fzf')
   packadd fzf.vim
 endif
 
-function! s:GrepToTab(word) abort
+" F9's results go in one scratch buffer, replaced by each new F9. It is
+" unlisted, so H / L skip it, but kept when hidden, so after opening a result
+" <C-^> comes back to it.
+function! s:GrepToBuffer(word) abort
   if executable('rg')
     let l:cmd = 'rg -i --sort=path --glob ' . shellescape('!tags')
   else
     let l:cmd = 'grep -ir --exclude=tags --exclude=' . shellescape('*.swp')
   endif
-  tabnew
-  setlocal buftype=nofile bufhidden=wipe noswapfile
+  let l:old = get(s:, 'grep_buf', -1)
+  enew
+  setlocal buftype=nofile bufhidden=hide noswapfile nobuflisted
+  if l:old != bufnr('') && bufexists(l:old)
+    execute 'bwipeout' l:old
+  endif
+  let s:grep_buf = bufnr('')
+  " Switching back into a buffer (<C-^>, :b) lists it again; undo that.
+  augroup vimrc
+    autocmd BufEnter <buffer> setlocal nobuflisted
+  augroup END
   call setline(1, systemlist(l:cmd . ' -- ' . shellescape(a:word) . ' .'))
-  " Enter on a result line does what Shift-F9 does. Shift-F9 depends on the
-  " terminal sending xterm's code for it, which not all do (e.g. Terminal.app).
-  nnoremap <buffer> <CR> ^<C-w>gfn
+  " Enter does what Shift-F9 does. Shift-F9 depends on the terminal sending
+  " xterm's code for it, which not all do (e.g. Terminal.app).
+  nnoremap <buffer> <CR> :call <SID>OpenGrepResult(0)<CR>
+endfunction
+
+" Open the file named at the start of the line, at the first match of the
+" search F9 set. With a:close, also discard F9's results buffer.
+function! s:OpenGrepResult(close) abort
+  let l:from = bufnr('')
+  normal! ^gf
+  silent! normal! n
+  if a:close && l:from == get(s:, 'grep_buf', -1)
+    execute 'bwipeout' l:from
+  endif
 endfunction
 
 " Keeps the cursor and view where they were: a bare `%s/\s\+$//e` leaves the
@@ -183,10 +206,11 @@ if executable('rg')
 else
   nnoremap <F8> :grep! "\<<cword>\>" . -r<CR>
 endif
-" F9: grep for it, case-insensitively, into a scratch tab; Enter (or Shift-F9)
-" on a result then opens that file, at the first match.
-nnoremap <F9> *N:call <SID>GrepToTab(expand('<cword>'))<CR>
-nnoremap <S-F9> ^<C-w>gfn
-nnoremap <C-S-F9> ^<C-w>gfngT:q!<CR>
+" F9: grep for it, case-insensitively, into a scratch buffer; Enter (or
+" Shift-F9) on a result then opens that file, at the first match, and <C-^>
+" returns to the results. Ctrl-Shift-F9 opens it and discards the results.
+nnoremap <F9> *N:call <SID>GrepToBuffer(expand('<cword>'))<CR>
+nnoremap <S-F9> :call <SID>OpenGrepResult(0)<CR>
+nnoremap <C-S-F9> :call <SID>OpenGrepResult(1)<CR>
 " F12: follow the tag under the cursor in a new tab.
 nnoremap <silent> <F12> <C-w><C-]><C-w>T
