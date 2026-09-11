@@ -63,3 +63,18 @@ fi
 # Last, so per-OS and per-site overrides win.
 
 [ -f "$HOME/.shrc.common" ] && . "$HOME/.shrc.common"
+
+# --- fzf ------------------------------------------------------------------
+# Ctrl-R fuzzy history, Ctrl-T insert a path, Alt-C cd into a dir, and
+# `**<Tab>` fuzzy completion. After .shrc.common, so PATH is final (pixi on
+# JASMIN, brew on macOS). `fzf --bash` needs fzf >= 0.48; older ones print
+# nothing here. Keep in step with the same block in ~/.zshrc.
+if command -v fzf >/dev/null 2>&1; then
+    # List with fd where there is one: fast, and skips .gitignored files.
+    # FZF_DEFAULT_COMMAND is left alone: ~/.vimrc sets it when unset.
+    if command -v fd >/dev/null 2>&1; then
+        export FZF_CTRL_T_COMMAND='fd --type f'
+        export FZF_ALT_C_COMMAND='fd --type d'
+    fi
+    eval "$(fzf --bash 2>/dev/null)"
+fi
