@@ -28,6 +28,21 @@ commit secrets, keys, tokens or anything under `.ssh/`).
   https://raw.githubusercontent.com/markmuetz/cfg/main/bin/cfg-install | sh`). Full details:
   `~/notes/new_computer_setup.md`, `~/notes/check_cfg_up_to_date.md`.
 
+## Global software: the `computer_setup` repo
+
+What is installed *globally* on each machine (JASMIN, lapsedpacifist), and why, is recorded in
+https://github.com/markmuetz/computer_setup (**private**; on JASMIN at `~/projects/local/computer_setup`).
+Project envs are out of scope. Dotfiles stay in cfg.
+
+- Order of preference: **uv > pixi > conda > pip**. Python CLI tools: `uv tool install`. Non-Python CLI tools:
+  `pixi global install` (JASMIN) / `brew` (Mac). New project envs: uv, or pixi if they need conda-forge
+  binaries. No new conda envs. Never `pip install --user`.
+- When installing or removing something global: update that machine's manifest (`<machine>/pixi-global.toml`,
+  `uv-tools.txt`, `Brewfile`), `TOOLS.md`, and `<machine>/changes.md`, then commit. Removals are proposed in
+  `<machine>/cleanup.md` and need an explicit OK. Retired things on JASMIN go to `~/legacy/`.
+- Tell installers not to edit shell rc files (`--no-modify-path`, decline the prompt). PATH lives in cfg's
+  `.shrc.common`.
+
 ## Tools installed per machine
 
 - `pixi` lives in `~/.pixi/bin` (on PATH via `.shrc.common`); global tools such as `gh` are installed with
