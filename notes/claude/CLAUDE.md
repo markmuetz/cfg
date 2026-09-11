@@ -35,3 +35,13 @@ commit secrets, keys, tokens or anything under `.ssh/`).
   them as `~/.pixi/bin/pixi` / `~/.pixi/bin/gh`.
 - git's GitHub credential helper is `gh auth git-credential`, so `git push` over https needs `gh` on PATH
   (e.g. `PATH=$HOME/.pixi/bin:$PATH git push`). There is no GitHub ssh key on JASMIN.
+
+## JASMIN (`~/.i_am_on_jasmin` exists)
+
+- **Always use `du --apparent-size`** (e.g. `du -sh --apparent-size`, `du -s --apparent-size --block-size=1M`).
+  Plain `du` on the JASMIN filesystems does not report the space that counts. It is also slow on the NFS
+  home, so run it per directory with a `timeout`, or in the background.
+- `$HOME` has a hard quota, and it has filled up before (Sept 2026). When it is exceeded every write fails,
+  including editors and shells in other sessions. Before anything that downloads or unpacks a lot into
+  `$HOME` (a conda/pixi env, a big `pip`/`uv` install), check there is room. Put caches on scratch
+  (`/work/scratch-nopw2/mmuetz`), as pixi's already is.
