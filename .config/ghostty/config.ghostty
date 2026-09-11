@@ -1,0 +1,3 @@
+# Ghostty config (tracked in cfg).
+# Most remote hosts (e.g. JASMIN) lack the xterm-ghostty terminfo, so advertise a standard TERM.
+term = xterm-256color
