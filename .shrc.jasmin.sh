@@ -21,6 +21,16 @@ if _shrc_have uv && [ -z "$(find "$_uv_stamp" -mtime -30 2>/dev/null)" ]; then
 fi
 unset _uv_stamp
 
+# pixi's cache is in $HOME too (~/.cache/rattler), so project envs are hardlinked from
+# it, not copied. pixi has no prune, so clear the whole cache every 30 days, same way
+# as uv's. Envs already built keep their files because they are hardlinks.
+_pixi_stamp="$HOME/.cache/pixi-last-clean"
+if _shrc_have pixi && [ -z "$(find "$_pixi_stamp" -mtime -30 2>/dev/null)" ]; then
+    mkdir -p "$HOME/.cache" && touch "$_pixi_stamp"
+    (pixi clean cache --yes >/dev/null 2>&1 &)
+fi
+unset _pixi_stamp
+
 # Conda managed by miniforge, so no dependency on the (removed) Anaconda:
 # https://help.jasmin.ac.uk/docs/software-on-jasmin/conda-removal/
 _shrc_conda_init "$HOME/miniforge3"
