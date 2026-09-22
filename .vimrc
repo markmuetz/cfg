@@ -204,8 +204,31 @@ nnoremap <C-S-F3> :!make clean<CR><CR>
 nnoremap <F5> :edit!<CR>
 nnoremap <S-F5> :tabdo edit!<CR>
 " F6 is 'pastetoggle', set above.
-" F7: open the citation under the cursor.
-nnoremap <F7> "zyiw:exec '!litman display' shellescape(@z, 1) '2>/dev/null 1>/dev/null'<CR><CR>
+" F7: open the citation under the cursor. Unambiguous prefixes work too
+" (mapes2011 -> mapes2011parameterizing); an ambiguous one offers a choice, and
+" not-found / no-PDF are reported instead of failing silently.
+function! s:LitmanDisplay(name) abort
+  " Per line: a NL inside a String is an ordinary char to Vim's regex (both `.`
+  " and [^\n] match it). Only 7.4-era functions -- no trim() or lambdas.
+  for l:line in split(system('litman display ' . shellescape(a:name)), "\n")
+    let l:many = matchstr(l:line, 'Multiple items matching \S\+ found: \zs.*')
+    if !empty(l:many)
+      let l:keys = split(l:many, ',\s*')
+      let l:i = inputlist(['Which paper?'] +
+            \ map(copy(l:keys), '(v:key + 1) . ". " . v:val'))
+      if l:i >= 1 && l:i <= len(l:keys)
+        call system('litman display ' . shellescape(l:keys[l:i - 1]))
+      endif
+      return
+    elseif l:line =~# 'Could not find\|has no PDF'
+      echohl WarningMsg
+      echo substitute(l:line, '^INFO\s*:\s*', '', '')
+      echohl None
+      return
+    endif
+  endfor
+endfunction
+nnoremap <silent> <F7> :call <SID>LitmanDisplay(expand('<cword>'))<CR>
 " F8: grep for the word under the cursor into the quickfix list.
 if executable('rg')
   nnoremap <F8> :grep! -w -- <cword> .<CR>
