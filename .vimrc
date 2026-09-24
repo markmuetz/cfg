@@ -163,6 +163,8 @@ augroup vimrc
   autocmd BufLeave * if &filetype ==# 'fortran' | set noignorecase | endif
 
   autocmd FileType tex setlocal wrap linebreak textwidth=0 wrapmargin=0
+  " Markdown nests lists by 2 spaces.
+  autocmd FileType markdown setlocal shiftwidth=2 tabstop=2 softtabstop=2
 
   autocmd BufWritePre * if &filetype =~# '^\(python\|tex\)$'
         \ | call StripTrailingWhitespaces() | endif
