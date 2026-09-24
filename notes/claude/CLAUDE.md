@@ -60,3 +60,14 @@ Project envs are out of scope. Dotfiles stay in cfg.
   including editors and shells in other sessions. Before anything that downloads or unpacks a lot into
   `$HOME` (a conda/pixi env, a big `pip`/`uv` install), check there is room. Put caches on scratch
   (`/work/scratch-nopw2/mmuetz`), as pixi's already is.
+
+## lapsedpacifist (the University MacBook Air; `~/.compname` says `lapsedpacifist`, hostname `KP2L32CW6V`)
+
+- Its computer_setup dir is `~/projects/local/computer_setup/lapsedpacifist/`. **Every global install or removal
+  here** (brew formula/cask, `uv tool`, direct-download app) is recorded there: `Brewfile` or `uv-tools.txt`,
+  `../TOOLS.md`, `changes.md`, plus `README.md` if the shell start-up chain changes. Pull first
+  (`git merge --ff-only origin/main`; JASMIN commits land there too), then commit.
+  Check with `lapsedpacifist/install.sh --dry-run`: it flags brew packages missing from the `Brewfile`.
+- Ruby is brew's keg-only 4.x (`/opt/homebrew/opt/ruby/bin`, put first on PATH by `.shrc.darwin`); `/usr/bin/ruby`
+  is 2.6 and too old for Jekyll. In a non-interactive shell, prefix `PATH=/opt/homebrew/opt/ruby/bin:$PATH`.
+  Keep gems per project (`bundle config set --local path vendor/bundle`).

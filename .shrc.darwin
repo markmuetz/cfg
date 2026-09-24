@@ -18,6 +18,16 @@ if [ -z "$HOMEBREW_PREFIX" ]; then
     unset _brew
 fi
 
+# brew's Ruby is keg-only; put it ahead of the too-old system Ruby (for Jekyll).
+_brew_ruby="${HOMEBREW_PREFIX:-/opt/homebrew}/opt/ruby/bin"
+if [ -d "$_brew_ruby" ]; then
+    case ":$PATH:" in
+        *":$_brew_ruby:"*) ;;
+        *) export PATH="$_brew_ruby:$PATH" ;;
+    esac
+fi
+unset _brew_ruby
+
 _gnubin="${HOMEBREW_PREFIX:-/opt/homebrew}/opt/coreutils/libexec/gnubin"
 if [ -d "$_gnubin" ]; then
     # GNU coreutils available: prefer them, then re-run the colour setup now
