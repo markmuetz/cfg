@@ -20,10 +20,11 @@ Without line numbers, comments are located by page only.
 
 With --review it also writes <name>_review.md, a skeleton referee report:
 Summary and Recommendation (for you to write), then Major comments, Minor
-comments and Technical corrections, each a numbered list of "L.45: <comment>".
-Start a comment with M:, m: or t: to put it in a section (untagged comments
-are minor). Only the comment text goes in, never manuscript text, and marks
-with no comment are listed at the end as reminders.
+comments and Technical corrections, each a numbered list of
+'L.45: "<marked text>" <comment>'. Start a comment with M:, m: or t: to put it
+in a section (untagged comments are minor). The text a highlight or strike-out
+marks is quoted in double quotes; no other manuscript text goes in. Marks with
+no comment are listed at the end as reminders.
 
 Runs locally: nothing is sent anywhere.
 
@@ -155,8 +156,16 @@ def quoted_text(page, annot, words):
     word once, in reading order."""
     v = annot.vertices or []
     quads = [pymupdf.Quad(v[i:i + 4]).rect for i in range(0, len(v) - 3, 4)]
-    hit = [w for w in words
-           if any(pymupdf.Point((w[0] + w[2]) / 2, (w[1] + w[3]) / 2) in q for q in quads)]
+    hit = []
+    for w in words:
+        inside = [q for q in quads if pymupdf.Point((w[0] + w[2]) / 2, (w[1] + w[3]) / 2) in q]
+        if not inside:
+            continue
+        # A mark that stops before the word does ("(2022)" of "(2022).") leaves
+        # out its trailing punctuation.
+        if w[2] > max(q.x1 for q in inside) + 1:
+            w = (*w[:4], w[4].rstrip(".,;:"), *w[5:])
+        hit.append(w)
     return join_words(sorted(hit, key=lambda w: (w[5], w[6], w[7])))
 
 
@@ -174,12 +183,22 @@ def join_words(words):
     return out
 
 
+def page_words(page):
+    """The page's printed words, without those of text-box annotations, which
+    PyMuPDF extracts along with the page text."""
+    boxes = [(a.rect, set((a.info.get("content") or "").split()))
+             for a in page.annots() if a.type[1] == "FreeText"]
+    return [w for w in page.get_text("words")
+            if not any(pymupdf.Point((w[0] + w[2]) / 2, (w[1] + w[3]) / 2) in r and w[4] in t
+                       for r, t in boxes)]
+
+
 def extract(path, drawings=False):
     doc = pymupdf.open(path)
     numbers = margin_numbers(doc)
     comments = []
     for pno, page in enumerate(doc, 1):
-        words = page.get_text("words")
+        words = page_words(page)
         for annot in page.annots():
             kind = annot.type[1]
             if kind in SKIP or (kind == "Ink" and not drawings):
@@ -227,7 +246,7 @@ def clip(t, n=100):
 def near_text(page, c):
     """The printed text a comment sits on: under a drawing or box, else the
     text line level with it (an icon, a text box, marks in the margin)."""
-    words = page.get_text("words")
+    words = page_words(page)
     if c.kind not in ("Note", "Insert", "Text box"):
         # Whole words the marks touch, in reading order (block, line, word).
         r = pymupdf.Rect(c.rect)
@@ -321,9 +340,9 @@ def review_where(c):
 def to_review(path, top, numbered):
     """A skeleton review in the usual form, from the comments alone.
 
-    Only the reviewer's own comment text goes in; no manuscript text (quotes
-    or nearby lines), so the draft can be language-edited without sharing
-    the manuscript. Marks with no comment are listed at the end as reminders.
+    Each item is the reviewer's comment, preceded by the text it marks (for a
+    highlight, underline or strike-out) in double quotes. Nearby lines ("near")
+    are left out. Marks with no comment are listed at the end as reminders.
     """
     items = {k: [] for k, _ in SECTIONS}
     bare = []
@@ -338,7 +357,8 @@ def to_review(path, top, numbered):
         items[kind].append((c, text))
     out = [f"# Review of {path.stem}\n",
            "<!-- Draft assembled by extract-comments --review from the comments in the "
-           "PDF: only the comment text, no manuscript text. Tag comments M: (major), "
+           "PDF: your comments, each after the text it marks in double quotes. Tag "
+           "comments M: (major), "
            "m: (minor) or t: (technical); untagged ones are minor. Write the summary "
            "and recommendation yourself, and expand any shorthand. -->\n",
            "## Summary\n", "_Summarise the manuscript and give your overall assessment._\n",
@@ -350,7 +370,8 @@ def to_review(path, top, numbered):
             continue
         for i, (c, text) in enumerate(items[key], 1):
             first, *rest = (text or "(no text)").split("\n")
-            out.append(f"{i}. {review_where(c)}: {first}")
+            quote = f'"{c.quoted}" ' if c.quoted else ""
+            out.append(f"{i}. {review_where(c)}: {quote}{first}")
             out.extend(f"   {line}" for line in rest)
             for r in c.replies:
                 if r.text:
@@ -360,7 +381,8 @@ def to_review(path, top, numbered):
     if bare:
         out.append("## Marks without a comment (reminders; not part of the review)\n")
         for c in bare:
-            out.append(f"- {review_where(c)}: {c.kind.lower()}")
+            quote = f' "{c.quoted}"' if c.quoted else ""
+            out.append(f"- {review_where(c)}: {c.kind.lower()}{quote}")
         out.append("")
     if not numbered:
         out.append("<!-- The PDF has no line numbers: items are located by page only. -->\n")

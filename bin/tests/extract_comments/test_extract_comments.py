@@ -148,8 +148,9 @@ class TestExtractComments(unittest.TestCase):
         self.assertIn("  M: Is 1989 in the list?\n  Second line.", md)
         self.assertIn("> Cold pools organise (hereafter RCEMIP)", md)
         self.assertIn("7 comments and 1 reply", md)
-        self.assertIn("> is not a citation.\n  Hyphenated.", md)
+        self.assertIn("> is not a citation\n  Hyphenated.", md)   # the mark stops before "."
         self.assertEqual(md.count("- Reply"), 1)            # nested, not listed twice
+        self.assertIn("*near:* \u201cMapes, B. E., 1993", md)   # not the box's own text
 
     def test_no_line_numbers(self):
         md = self.md["plain"]
@@ -166,19 +167,22 @@ class TestExtractComments(unittest.TestCase):
         get = lambda title: next(x for x in sections if x.startswith(title))
         major, minor, tech = get("Major comments"), get("Minor comments"), get("Technical corrections")
         self.assertIn(f"1. L.{at['Houze (1989, 2018)']}: Is 1989 in the list?\n   Second line.", major)
-        self.assertIn(f"1. L.{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}: Rephrase.", tech)
+        self.assertIn(f"1. L.{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}: "
+                      '"Cold pools organise (hereafter RCEMIP)" Rephrase.', tech)
         # Untagged comments are minor, in document order; replies follow their item.
         self.assertEqual(re.findall(r"^\d+\. (\S+): (.*)$", minor, re.M), [
             ("p.1", "A general comment in the top margin."),
-            (f"L.{at['Zipser (1977)']}", "Check the year."),
-            (f"L.{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}", "Hyphenated."),
+            (f"L.{at['Zipser (1977)']}", '"Zipser (1977)" Check the year.'),
+            (f"L.{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}",
+             '"is not a citation" Hyphenated.'),
             (f"L.{at['Mapes, B. E.']}", "Never cited?"),
         ])
         self.assertIn("   - Reply (Author): Checked: fine.", minor)
-        self.assertIn(f"- L.{at['Elsaesser et al. (2022)']}: highlight", get("Marks without"))
-        # No manuscript text: no quotes, no nearby lines.
-        for text in ("Zipser (1977)", "Cold pools", "near:", "Elsaesser et al"):
-            self.assertNotIn(text, rv)
+        self.assertIn(f'- L.{at["Elsaesser et al. (2022)"]}: highlight "Elsaesser et al. (2022)"',
+                      get("Marks without"))
+        # Marked text is quoted; the nearby lines of notes and text boxes are not.
+        self.assertNotIn("near:", rv)
+        self.assertNotIn("described by", rv)
 
     def test_skip_bare(self):
         md = self.md["every-skip"]
