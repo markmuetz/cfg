@@ -42,14 +42,14 @@ def annotate(pdf):
     reply.set_irt_xref(h.xref)
     reply.update()
 
-    note = p1.add_text_annot(p1.search_for("Houze (1989, 2018)")[0].tl, "Is 1989 in the list?\nSecond line.")
+    note = p1.add_text_annot(p1.search_for("Houze (1989, 2018)")[0].tl, "M: Is 1989 in the list?\nSecond line.")
     note.set_info(title="Referee 1")
     note.update()
 
     # One strike-out across two lines: its quads sit on different lines.
     a, b = p1.search_for("Cold pools organise"), p1.search_for("(hereafter RCEMIP)")
     s = p1.add_strikeout_annot(quads=[pymupdf.Rect(a[0]).quad, pymupdf.Rect(b[0]).quad])
-    s.set_info(content="Rephrase.", title="Referee 1")
+    s.set_info(content="t: Rephrase.", title="Referee 1")
     s.update()
 
     bare = p1.add_highlight_annot(p1.search_for("Elsaesser et al. (2022)")[0])
@@ -114,6 +114,10 @@ class TestExtractComments(unittest.TestCase):
             cls.md[name] = run(d / f"{name}.pdf")
         cls.md["every-skip"] = run(d / "every.pdf", "--skip-bare")
         cls.md["every-drawings"] = run(d / "every.pdf", "--drawings")
+        with tempfile.TemporaryDirectory() as out:
+            subprocess.run([str(TOOL), str(d / "every.pdf"), "-o", out, "--review"],
+                           check=True, capture_output=True)
+            cls.review = (Path(out) / "every_review.md").read_text()
 
     @classmethod
     def tearDownClass(cls):
@@ -141,7 +145,7 @@ class TestExtractComments(unittest.TestCase):
         md = self.md["every"]
         self.assertIn("  > Zipser (1977)\n  Check the year.\n  - Reply — *Author", md)
         self.assertIn("    Checked: fine.", md)
-        self.assertIn("  Is 1989 in the list?\n  Second line.", md)
+        self.assertIn("  M: Is 1989 in the list?\n  Second line.", md)
         self.assertIn("> Cold pools organise (hereafter RCEMIP)", md)
         self.assertIn("7 comments and 1 reply", md)
         self.assertIn("> is not a citation.\n  Hyphenated.", md)
@@ -155,6 +159,26 @@ class TestExtractComments(unittest.TestCase):
     def test_drawings_only_on_request(self):
         self.assertNotIn("Drawing", self.md["every"])
         self.assertIn("Drawing", self.md["every-drawings"])
+
+    def test_review(self):
+        rv, at = self.review, self.at
+        sections = re.split(r"^## ", rv, flags=re.M)
+        get = lambda title: next(x for x in sections if x.startswith(title))
+        major, minor, tech = get("Major comments"), get("Minor comments"), get("Technical corrections")
+        self.assertIn(f"1. L.{at['Houze (1989, 2018)']}: Is 1989 in the list?\n   Second line.", major)
+        self.assertIn(f"1. L.{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}: Rephrase.", tech)
+        # Untagged comments are minor, in document order; replies follow their item.
+        self.assertEqual(re.findall(r"^\d+\. (\S+): (.*)$", minor, re.M), [
+            ("p.1", "A general comment in the top margin."),
+            (f"L.{at['Zipser (1977)']}", "Check the year."),
+            (f"L.{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}", "Hyphenated."),
+            (f"L.{at['Mapes, B. E.']}", "Never cited?"),
+        ])
+        self.assertIn("   - Reply (Author): Checked: fine.", minor)
+        self.assertIn(f"- L.{at['Elsaesser et al. (2022)']}: highlight", get("Marks without"))
+        # No manuscript text: no quotes, no nearby lines.
+        for text in ("Zipser (1977)", "Cold pools", "near:", "Elsaesser et al"):
+            self.assertNotIn(text, rv)
 
     def test_skip_bare(self):
         md = self.md["every-skip"]

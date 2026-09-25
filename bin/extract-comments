@@ -18,6 +18,13 @@ column of rising numbers in the margin is found and every comment is placed
 against it ("l.45-46"), interpolating when only every 5th line is numbered.
 Without line numbers, comments are located by page only.
 
+With --review it also writes <name>_review.md, a skeleton referee report:
+Summary and Recommendation (for you to write), then Major comments, Minor
+comments and Technical corrections, each a numbered list of "L.45: <comment>".
+Start a comment with M:, m: or t: to put it in a section (untagged comments
+are minor). Only the comment text goes in, never manuscript text, and marks
+with no comment are listed at the end as reminders.
+
 Runs locally: nothing is sent anywhere.
 
 Usage:
@@ -25,6 +32,7 @@ Usage:
     extract-comments paper.pdf -o notes/     # writes notes/paper_comments.md
     extract-comments paper.pdf --print       # and prints it
     extract-comments paper.pdf --skip-bare   # leave out marks with no comment
+    extract-comments paper.pdf --review      # also ./paper_review.md
 
 Needs uv (it runs as a uv script and fetches PyMuPDF on first use).
 Tests: ~/bin/tests/extract_comments/test_extract_comments.py (needs pdflatex).
@@ -281,6 +289,84 @@ def to_markdown(path, top, numbered, total, skip_bare=False):
     return "\n".join(out)
 
 
+# --- review draft ------------------------------------------------------------
+
+# A tag at the start of a comment sorts it into a section of the review.
+# Single letters are case-sensitive (M major, m minor); words are not.
+TAG_RE = re.compile(r"^\s*(M|m|t|T|major|maj|minor|min|technical|tech|typo)\s*[:.)]\s*", re.I)
+SECTIONS = [("major", "Major comments"), ("minor", "Minor comments"),
+            ("technical", "Technical corrections")]
+
+
+def section_of(text):
+    """('major' | 'minor' | 'technical', text without its tag). Untagged: minor."""
+    m = TAG_RE.match(text)
+    if not m:
+        return "minor", text
+    tag = m.group(1)
+    if tag == "M" or tag.lower() in ("major", "maj"):
+        kind = "major"
+    elif tag == "m" or tag.lower() in ("minor", "min"):
+        kind = "minor"
+    else:
+        kind = "technical"
+    return kind, text[m.end():]
+
+
+def review_where(c):
+    """'L.45', 'L.45–46', or 'p.3' where there is no line number."""
+    return where(c).replace("l.", "L.", 1)
+
+
+def to_review(path, top, numbered):
+    """A skeleton review in the usual form, from the comments alone.
+
+    Only the reviewer's own comment text goes in; no manuscript text (quotes
+    or nearby lines), so the draft can be language-edited without sharing
+    the manuscript. Marks with no comment are listed at the end as reminders.
+    """
+    items = {k: [] for k, _ in SECTIONS}
+    bare = []
+    for c in top:
+        if not c.text:
+            if c.replies:
+                items["minor"].append((c, ""))
+            else:
+                bare.append(c)
+            continue
+        kind, text = section_of(c.text)
+        items[kind].append((c, text))
+    out = [f"# Review of {path.stem}\n",
+           "<!-- Draft assembled by extract-comments --review from the comments in the "
+           "PDF: only the comment text, no manuscript text. Tag comments M: (major), "
+           "m: (minor) or t: (technical); untagged ones are minor. Write the summary "
+           "and recommendation yourself, and expand any shorthand. -->\n",
+           "## Summary\n", "_Summarise the manuscript and give your overall assessment._\n",
+           "## Recommendation\n", "_Accept / minor revision / major revision / reject._\n"]
+    for key, title in SECTIONS:
+        out.append(f"## {title}\n")
+        if not items[key]:
+            out.append("_None._\n")
+            continue
+        for i, (c, text) in enumerate(items[key], 1):
+            first, *rest = (text or "(no text)").split("\n")
+            out.append(f"{i}. {review_where(c)}: {first}")
+            out.extend(f"   {line}" for line in rest)
+            for r in c.replies:
+                if r.text:
+                    who = f" ({r.author})" if r.author else ""
+                    out.append(block(f"- Reply{who}: {r.text}", "   "))
+        out.append("")
+    if bare:
+        out.append("## Marks without a comment (reminders; not part of the review)\n")
+        for c in bare:
+            out.append(f"- {review_where(c)}: {c.kind.lower()}")
+        out.append("")
+    if not numbered:
+        out.append("<!-- The PDF has no line numbers: items are located by page only. -->\n")
+    return "\n".join(out)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\nProvenance\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -292,6 +378,9 @@ def main():
                     help="include freehand drawings (pen strokes), left out by default")
     ap.add_argument("--skip-bare", action="store_true",
                     help="leave out highlights and other marks that have no comment text")
+    ap.add_argument("--review", action="store_true",
+                    help="also write <name>_review.md, a skeleton review from the comments "
+                         "(tag them M:, m: or t: for major, minor, technical)")
     args = ap.parse_args()
     top, numbered, total = extract(args.file, args.drawings)
     md = to_markdown(args.file, top, numbered, total, args.skip_bare)
@@ -302,6 +391,10 @@ def main():
         print(md)
     print(f"Wrote {dest}: {total} annotation{'' if total == 1 else 's'}"
           + ("" if numbered else " (no line numbers found: located by page)"), file=sys.stderr)
+    if args.review:
+        review = args.out / f"{args.file.stem}_review.md"
+        review.write_text(to_review(args.file, top, numbered))
+        print(f"Wrote {review}", file=sys.stderr)
 
 
 if __name__ == "__main__":
