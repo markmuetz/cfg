@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+
+from check_citations import main
+main()

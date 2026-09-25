@@ -1,0 +1,86 @@
+% Test fixture for scripts/check_citations.py: a line-numbered, double-spaced
+% AMS-style manuscript with known citation errors planted in it. The expected
+% flags are asserted in test_check_citations.py; keep the two in step.
+\documentclass[12pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{lineno}
+\doublespacing
+\linenumbers
+\setlength{\parindent}{2em}
+\begin{document}
+
+\section*{Abstract}
+Mesoscale convective systems in the tropics are studied with satellite data.
+
+\section{Introduction}
+Tropical heat is carried to the upper troposphere by deep convective towers
+(Malkus and Riehl, 1958; Houze 2004), organised into mesoscale systems.
+Their convective and stratiform regions were described by Zipser (1977) and
+Houze (1989, 2018). Stratiform rain fractions come from Schumacher and
+Houze (2003, 2006), and the latent heating from Liu et al. (2021).
+Global tracking is described by Feng et al. (2021a, b), and the tracked data set
+of Feng et al. (2021) is used here. Land and ocean differ (Nesbitt et al. 2000;
+Mohr and Zipser 1996). Anvil clouds were identified by Yuan et al. (2010) and
+Elsaesser et al. (2022). The IPCC (IPCC 2021) assesses future changes, and
+van der Linden et al. (2020) and Volonté et al. (2022) examine case studies,
+as do García-Pérez and Smith (2019) and Hagos et al. (2013).
+10 km grid spacing is used in all simulations described in Section 2 of this
+paper, and the period is January 2020 to March 2021.
+
+\section{Acknowledgments}
+Supported by contract DE-AC05-76RL01830.
+
+\section*{References}
+\begin{flushleft}
+\setlength{\parindent}{-2em}\setlength{\leftskip}{2em}
+
+Elsaesser, G. S., R. Roca, T. Fiolleau, A. D. Del Genio, and J. Wu, 2022: A simple model for tropical convective cloud shield area growth and decay rates informed by geostationary IR, GPM, and Aqua/AIRS satellite data. \textit{J. Geophys. Res. Atmos.}, \textbf{127}, e2021JD035599.
+
+Elsaesser, G. S., R. Roca, T. Fiolleau, A. D. Del Genio, and J. Wu, 2022: A simple model for tropical convective cloud shield area growth and decay rates informed by geostationary IR, GPM, and Aqua/AIRS satellite data. \textit{J. Geophys. Res. Atmos.}, \textbf{127}, e2021JD035599.
+
+Feng, Z., and Coauthors, 2021a: A global high-resolution mesoscale convective system database using satellite-derived cloud tops, surface precipitation, and tracking. \textit{J. Geophys. Res. Atmos.}, \textbf{126}, e2020JD034202.
+
+Feng, Z., F. Song, K. Sakaguchi, and L. R. Leung, 2021b: Evaluation of mesoscale convective systems in climate simulations: Methodological development and results from MPAS-CAM over the United States. \textit{J. Climate}, \textbf{34}, 2611--2633.
+
+Hagoss, S. M., C. Zhang, W.-K. Tao, S. Lang, Y. N. Takayabu, S. Shige, M. Katsumata, B. Olson, and T. L'Ecuyer, 2013: Estimates of tropical diabatic heating profiles. \textit{J. Climate}, \textbf{23}, 542--558.
+
+Houze, R. A., Jr., 2004: Mesoscale convective systems. \textit{Rev. Geophys.}, \textbf{42}, RG4003.
+
+------, 2018: 100 years of research on mesoscale convective systems. \textit{A Century of Progress in Atmospheric and Related Sciences: Celebrating the American Meteorological Society Centennial, Meteor. Monogr.}, No. 59, Amer. Meteor. Soc., 17.1--17.54.
+
+IPCC, 2021: \textit{Climate Change 2021: The Physical Science Basis}. Cambridge University Press, 2391 pp.
+
+Liu, N., L. R. Leung, and Z. Feng, 2021: Global mesoscale convective system latent heating characteristics from GPM retrievals and an MCS tracking dataset. \textit{J. Climate}, \textbf{34}, 8599--8613.
+
+Mapes, B. E., 1993: Gregarious tropical convection. \textit{J. Atmos. Sci.}, \textbf{50}, 2026--2037.
+
+Mohr, K. I., and E. J. Zipser, 1996: Mesoscale convective systems defined by their 85-GHz ice scattering signature: Size and intensity comparison over tropical oceans and continents. \textit{Mon. Wea. Rev.}, \textbf{124}, 2417--2437.
+
+Nesbitt, S. W., E. J. Zipser, and D. J. Cecil, 2000: A census of precipitation features in the tropics using TRMM: Radar, ice scattering, and lightning observations. \textit{J. Climate}, \textbf{13}, 4087--4106.
+
+García Pérez, L., and J. Smith, 2019: A made-up entry whose surname has lost its hyphen. \textit{J. Climate}, \textbf{32}, 1--20.
+
+Riehl, H., and J. S. Malkus, 1958: On the heat balance in the equatorial trough zone. \textit{Geophysica}, \textbf{6}, 503--538.
+
+Schumacher, C., and R. A. Houze Jr., 2003: Stratiform rain in the tropics as seen by the TRMM Precipitation Radar. \textit{J. Climate}, \textbf{16}, 1739--1756.
+
+------, and ------, 2006: Stratiform precipitation production over sub-Saharan Africa and the tropical East Atlantic as observed by TRMM. \textit{Quart. J. Roy. Meteor. Soc.}, \textbf{132}, 2235--2255.
+
+van der Linden, R., A. H. Fink, J. G. Pinto, and T. Phan-Van, 2020: The dynamics of an extreme precipitation event in northeastern Vietnam in 2015. \textit{Mon. Wea. Rev.}, \textbf{148}, 2995--3015.
+
+Volonté, A., A. J. Turner, R. Schiemann, P. L. Vidale, and N. P. Klingaman, 2022: The interaction of tropical and extratropical air masses controlled the 2018 Kerala floods. \textit{Quart. J. Roy. Meteor. Soc.}, \textbf{148}, 3011--3033.
+
+Yuan, J., and R. A. Houze Jr., 2010: Global variability of mesoscale convective system anvil structure from A-Train satellite data. \textit{J. Climate}, \textbf{23}, 5864--5888.
+
+Zipser, E. J., 1977: Mesoscale and convective-scale downdrafts as distinct components of squall-line structure. \textit{Mon. Wea. Rev.}, \textbf{105}, 1568--1589.
+
+\end{flushleft}
+
+\clearpage
+\section*{List of Figures}
+Fig. 1. Schematic of an MCS, after Houze (2004) and Rutledge (1991).
+
+\end{document}
