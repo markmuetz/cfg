@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Test check_citations.py against citations_manuscript.tex.
+"""Test analyse_citations.py against citations_manuscript.tex.
 
 The fixture is typeset twice, numbering every line and every 5th line, and
 both builds must give the same flags at the same manuscript line numbers.
-Needs pdflatex. Run: python3 ~/bin/tests/check_citations/test_check_citations.py
+Needs pdflatex. Run: python3 ~/bin/tests/analyse_citations/test_analyse_citations.py
 """
 import shutil
 import subprocess
@@ -14,7 +14,7 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE.parent.parent))     # ~/bin
-import check_citations as cc  # noqa: E402
+import analyse_citations as ac  # noqa: E402
 
 TEX = (HERE / "citations_manuscript.tex").read_text()
 
@@ -43,13 +43,14 @@ class TestFixture(unittest.TestCase):
         cls.tmp.cleanup()
 
     def check(self, pdf):
-        source, cites, refs, issues = cc.run(pdf)
-        self.assertIn("line-numbered", source)
+        a = ac.run(pdf)
+        cites, refs, issues = a.cites, a.refs, a.issues
+        self.assertIn("line-numbered", a.source)
         flagged = {k: {(c.lineno, c.label()) for c, _ in v} for k, v in issues.items()}
         self.assertEqual(flagged["missing"], {
             (4, "Malkus and Riehl 1958"),    # authors in the wrong order
             (6, "Houze 1989"),               # no such reference
-            (71, "Rutledge 1991"),           # cited in a figure caption only
+            (76, "Rutledge 1991"),           # cited in a figure caption only
         })
         self.assertEqual(flagged["suffix"], {(9, "Feng et al. 2021")})
         self.assertEqual(flagged["authors"], {(10, "Yuan et al. 2010")})
@@ -73,6 +74,38 @@ class TestFixture(unittest.TestCase):
         labels = {c.label() for c in cites}
         self.assertFalse(any("DE" in l or "January" in l or "March" in l for l in labels), labels)
 
+        # "Cortado (2013, hereafter C13)": two later uses of C13, so three citations.
+        (c13,) = a.aliases
+        self.assertEqual((c13.alias, len(c13.uses)), ("C13", 2))
+        cortado = next(r for r in refs if r.first == "Cortado")
+        self.assertEqual(len(cortado.cited), 3)
+        self.assertEqual(cortado.key, "cortado2013cold")
+        self.assertEqual(a.unlinked, [])     # "(hereafter RCEMIP)" is not a citation
+        return a
+
+    def test_outputs(self):
+        a = self.check(self.pdfs["every line"])
+        with tempfile.TemporaryDirectory() as d:
+            ac.write(a, Path(d))
+            names = sorted(p.name for p in Path(d).iterdir())
+            self.assertEqual(names, ["every_citations.tsv", "every_references.bib", "every_report.md"])
+            bib = (Path(d) / "every_references.bib").read_text()
+            report = (Path(d) / "every_report.md").read_text()
+            tsv = (Path(d) / "every_citations.tsv").read_text()
+        self.assertEqual(bib.count("\n@"), len([r for r in a.refs if r.year]))
+        riehl = bib[bib.index("@article{riehl1958heat,"):]
+        riehl = riehl[:riehl.index("\n}")]
+        for field in ("author = {Riehl, H. and Malkus, J. S.}",
+                      "title = {On the heat balance in the equatorial trough zone}",
+                      "journal = {Geophysica}", "volume = {6}", "pages = {503--538}",
+                      "citedcount = {0}"):
+            self.assertIn(field, riehl)
+        self.assertIn("author = {Feng, Z. and others}", bib)          # "and Coauthors"
+        self.assertIn("author = {Houze, Jr., R. A.}", bib)
+        self.assertIn("| C13 | Cortado 2013 |", report)
+        self.assertIn("| 3 | Cortado 2013 | cortado2013cold |", report)
+        self.assertIn("C13 (= Cortado 2013)\tcortado2013cold", tsv)
+
     def test_every_line(self):
         self.check(self.pdfs["every line"])
 
@@ -88,7 +121,8 @@ class TestUnicode(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "m.txt"
             path.write_text("\n".join(body + ["References"] + refs) + "\n")
-            return cc.run(path)
+            a = ac.run(path)
+            return a.source, a.cites, a.refs, a.issues
 
     def test_mangled_accents_still_match(self):
         _, cites, refs, issues = self.run_text(

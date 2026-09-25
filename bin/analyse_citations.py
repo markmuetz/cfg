@@ -1,30 +1,43 @@
 #!/usr/bin/env python3
-"""Cross-check author-year citations against the reference list of a PDF.
+"""Analyse the author-year citations of a PDF against its reference list.
 
 Runs entirely locally (pdftotext + regexes): nothing is sent anywhere, so it is
-safe to use on a confidential manuscript or a student's dissertation. It flags
+safe to use on a confidential manuscript or a student's dissertation. For
+manuscript.pdf it writes
 
-  - citations with no matching reference, with near-miss suggestions (a
-    misspelt surname, a different year, the cited name being a co-author);
-  - names spelt differently from the reference (a letter or two out, or a
-    hyphen where the reference has a space);
-  - citations whose author count or year suffix disagrees with the reference
-    ("Yuan et al. 2010" against a two-author entry; "Feng et al. 2021" when
-    the list has 2021a and 2021b);
-  - references that are never cited, duplicated, or could not be parsed.
+  manuscript_report.md
+      What is wrong, and how often each reference is cited:
+        - citations with no matching reference, with near-miss suggestions
+          (a misspelt surname, a different year, the cited name being a
+          co-author);
+        - names spelt differently from the reference (a letter or two out,
+          or a hyphen where the reference has a space);
+        - citations whose author count or year letter disagrees with the
+          reference ("Yuan et al. 2010" against a two-author entry; "Feng et
+          al. 2021" when the list has 2021a and 2021b);
+        - references never cited, duplicated, or not parsed;
+        - abbreviations defined for citations ("Cortado (2013, hereafter
+          C13)"), whose later uses count as citations;
+        - a table of how many times each reference is cited.
+  manuscript_references.bib
+      The reference list as BibTeX, keyed <author><year><word>, with the raw
+      entry above each one and fields citedcount and citedlines (ignored by
+      BibTeX styles). Heuristic: check it before use.
+  manuscript_citations.tsv
+      Every in-text citation: line, as cited, the matching key.
 
-Line-numbered review manuscripts are detected automatically and every flag
-carries the manuscript line number. It understands author-year styles (AMS,
-AGU, APA, Harvard), not numbered ones. The parsing is heuristic: treat every
-flag as "look at this", not as a verdict, and check the NOT PARSED section.
+and prints the report. Line-numbered review manuscripts are detected
+automatically and everything is located by manuscript line number. It
+understands author-year styles (AMS, AGU, APA, Harvard), not numbered ones. The
+parsing is heuristic: treat every flag as "look at this", not as a verdict.
 
 Usage:
-    check-citations manuscript.pdf
-    check-citations manuscript.pdf --tsv outdir/   # also dump both lists as TSV
-    check-citations manuscript.txt                 # text you extracted yourself
+    analyse-citations manuscript.pdf                 # writes ./manuscript_*.{md,bib,tsv}
+    analyse-citations manuscript.pdf -o review/      # write them in review/ instead
+    analyse-citations manuscript.txt                 # text you extracted yourself
 
 Needs Python 3.8+ and pdftotext (poppler: `brew install poppler`).
-Tests: python3 ~/bin/tests/check_citations/test_check_citations.py (needs pdflatex).
+Tests: python3 ~/bin/tests/analyse_citations/test_analyse_citations.py (needs pdflatex).
 
 Provenance
 ----------
@@ -40,16 +53,18 @@ did not see the manuscript, its citations or this tool's output on it. Keep it
 that way: no network calls, no AI, nothing leaves the machine.
 
 How it was tested: a line-numbered LaTeX fixture with planted errors, typeset
-with every line and every 5th line numbered (tests/check_citations/), and a
+with every line and every 5th line numbered (tests/analyse_citations/), and a
 regression pass over eight published papers from MM's library in AMS, AGU,
 Wiley/APA and AMS Early Online Release styles. On those, most remaining flags
 were genuine errors in the published papers (a citation to the wrong year, a
 misspelt surname, a six-author paper cited as one author).
 
-History: developed in lit-workflow (scripts/check_citations.py); near-miss
+History: developed in lit-workflow as scripts/check_citations.py; near-miss
 matching added after a hyphenated surname in a manuscript's text appeared
 unhyphenated in its reference list and was reported as missing; moved to cfg
-~/bin the same day, to use for reviewing and for marking dissertations.
+~/bin as check-citations; renamed analyse-citations the same day when it
+gained the written report, the BibTeX list, citation counts and "hereafter"
+abbreviations. Used for reviewing and for marking dissertations.
 """
 import argparse
 import bisect
@@ -60,6 +75,7 @@ import sys
 import unicodedata
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 PARTICLE = r"(?:(?:[Vv]an|[Vv]on|[Dd]e|[Dd]el|[Dd]er|[Dd]en|[Dd]a|[Dd]i|[Dd]u|[Ll]a|[Ll]e|[Tt]en|[Tt]er|[Dd]os)\s+){0,2}"
@@ -71,6 +87,17 @@ YEAR = r"(?:1[89]\d\d|20\d\d)[a-z]?"
 YEARS = rf"{YEAR}(?:\s*,\s*(?:{YEAR}|[a-z](?![\w.])))*"
 CITE_RE = re.compile(
     rf"(?<![\w'’\-]){AUTHORS}\s*,?\s*[(\[]?\s*(?:e\.g\.,?\s*)?(?P<years>{YEARS})(?!\w)")
+
+# Abbreviations defined for a citation: "Riehl and Malkus (1958, hereafter
+# RM58)", "(hereafter referred to as C13)", "(C13 hereafter)". An abbreviation
+# has a digit (C13, RM58) or is all capitals (HM).
+ABBREV = r"[A-Z](?:[A-Za-z]*\d+[a-z]?|[A-Z]+)"
+HEREAFTER = r"(?:hereafter|hereinafter|henceforth)"
+ALIAS_RES = [
+    re.compile(rf"\b{HEREAFTER}[,:]?\s+(?:referred\s+to\s+as\s+|called\s+|as\s+)?"
+               rf"[\"“‘']?(?P<alias>{ABBREV})(?![\w\-])"),
+    re.compile(rf"(?<![\w\-])[\"“‘']?(?P<alias>{ABBREV})[\"”’']?\s+{HEREAFTER}\b"),
+]
 
 # Capitalised words that precede a year but are not authors.
 STOP = {
@@ -99,7 +126,7 @@ REF_END_RE = re.compile(
     r"^\s*(LIST OF (FIGURES|TABLES)|List of (Figures|Tables)|TABLES?\s*$|"
     r"(TABLE|Table)\s+\d+\.|(FIG|Fig)\.\s*\d+\.|(FIGURE|Figure)\s+\d+\.|"
     r"FIGURE CAPTIONS|Figure Captions|Figure captions)")
-DASHES = r"[—–_\-]{2,}"
+DASHES = r"[\u2014\u2013_\-]{2,}"
 REF_START_RE = re.compile(
     rf"^\s*(?:{PARTICLE}[A-Z][^\s,.:;()]*(?:[ \-][A-Z][^\s,.:;()]*)*"
     r",\s+(?:[A-Z]\.|(?:1[89]|20)\d\d[a-z]?[:.)])"
@@ -107,6 +134,7 @@ REF_START_RE = re.compile(
 REF_YEAR_RE = re.compile(r"(?:^|[\s(,])((?:1[89]|20)\d\d)([a-z]?)(?=[\s).:,;]|$)")
 INITIALS_RE = re.compile(r"^(?:[A-Z]\.-?)+$|^[A-Z]{1,2}$|^[A-Z]\.?-[A-Z]\.?$")
 SUFFIXES = {"jr", "jr.", "sr", "sr.", "ii", "iii", "iv"}
+TRUNCATED_RE = re.compile(r",?\s*(?:and\s+)?(?:et al\.?|Coauthors)")
 LINENO_RE = re.compile(r"^\s*(\d{1,5})(?=\s{2,}\S|\s*$)")
 
 
@@ -128,6 +156,12 @@ def where(page, lineno):
     return f"l.{lineno}" if lineno else f"p.{page}"
 
 
+def places(cites):
+    """'l.5, l.20, l.31': where the citations are, in order, without repeats."""
+    return list(dict.fromkeys(where(c.page, c.lineno)
+                              for c in sorted(cites, key=lambda c: (c.page, c.lineno))))
+
+
 @dataclass
 class Ref:
     index: int
@@ -140,7 +174,8 @@ class Ref:
     etal: bool = False
     year: str = ""
     suffix: str = ""
-    cited: int = 0
+    cited: list = field(default_factory=list)     # the Cites matched to it
+    key: str = ""
 
     @property
     def n(self):
@@ -149,6 +184,16 @@ class Ref:
     def label(self, width=100):
         t = self.text if len(self.text) <= width else self.text[:width] + "…"
         return f"{where(self.page, self.lineno):>7}  {t}"
+
+    def short(self):
+        """'Riehl and Malkus 1958', 'Feng et al. 2021a'."""
+        if self.etal:
+            a = f"{self.first} et al."
+        elif len(self.surnames) == 2:
+            a = f"{self.first} and {self.surnames[1]}"
+        else:
+            a = self.first
+        return f"{a} {self.year}{self.suffix}"
 
 
 @dataclass
@@ -160,6 +205,10 @@ class Cite:
     page: int
     lineno: int
     context: str
+    pos: int = 0     # offsets in the joined text
+    end: int = 0
+    alias: str = ""  # set when this is a use of an abbreviation such as "C13"
+    ref: object = None
 
     @property
     def first(self):
@@ -172,7 +221,28 @@ class Cite:
             a = ", ".join(self.names[:-1]) + " and " + self.names[-1]
         else:
             a = self.names[0]
-        return f"{a} {self.year}{self.suffix}"
+        s = f"{a} {self.year}{self.suffix}"
+        return f"{self.alias} (= {s})" if self.alias else s
+
+
+@dataclass
+class Alias:
+    alias: str
+    cite: Cite       # the citation it abbreviates
+    page: int
+    lineno: int
+    uses: list = field(default_factory=list)
+
+
+@dataclass
+class Analysis:
+    path: Path
+    source: str
+    cites: list
+    refs: list
+    issues: dict
+    aliases: list
+    unlinked: list   # abbreviations with no citation just before them: [(alias, Line)]
 
 
 # --- text extraction -------------------------------------------------------
@@ -311,7 +381,7 @@ def parse_ref(ref, prev):
     # "et al." and AMS's "and Coauthors" both stand for a truncated list.
     if re.search(r"\bet al\b|\bCoauthors\b", authors):
         ref.etal = True
-        authors = re.sub(r",?\s*(?:and\s+)?(?:et al\.?|Coauthors)", "", authors)
+        authors = TRUNCATED_RE.sub("", authors)
     chunks = [c.strip() for c in re.split(r",|\band\b|&", authors) if c.strip()]
     if not chunks:
         return ref
@@ -351,7 +421,8 @@ def clean_name(name):
     return re.sub(r"['’]s$", "", name.strip())     # "Zipser’s [1977]"
 
 
-def find_cites(lines):
+def join_lines(lines):
+    """One string for the whole text, plus the offset where each line starts."""
     parts, starts, pos = [], [], 0
     for l in lines:
         if parts and parts[-1].endswith("-") and l.text[:1].islower():
@@ -363,7 +434,12 @@ def find_cites(lines):
         starts.append(pos)
         parts.append(l.text)
         pos += len(l.text)
-    text = "".join(parts)
+    return "".join(parts), starts
+
+
+def find_cites(lines):
+    """Return (cites, joined text, line start offsets)."""
+    text, starts = join_lines(lines)
     cites = []
     for m in CITE_RE.finditer(text):
         names = [m.group("first")] + re.findall(SURNAME, m.group("more") or "")
@@ -397,8 +473,46 @@ def find_cites(lines):
                 year, suffix = y[:4], y[4:]
                 last_year = year
             cites.append(Cite(names, bool(m.group("etal")), year, suffix,
-                              line.page, line.lineno, ctx))
-    return cites
+                              line.page, line.lineno, ctx, m.start(), m.end()))
+    return cites, text, starts
+
+
+def find_aliases(cites, lines, text, starts):
+    """Abbreviations defined for citations, and every later use of each.
+
+    An abbreviation belongs to the citation just before it, in the same
+    sentence and at most 40 characters away: "Riehl and Malkus (1958,
+    hereafter RM58)", "(Cortado 2013; hereafter referred to as C13)". Its
+    later uses become Cites of the same work, counted like any citation.
+    """
+    defs = {}
+    for rx in ALIAS_RES:
+        for m in rx.finditer(text):
+            if m.group("alias") not in defs or m.start() < defs[m.group("alias")].start():
+                defs[m.group("alias")] = m
+    aliases, unlinked = [], []
+    for name, m in sorted(defs.items(), key=lambda kv: kv[1].start()):
+        line = lines[bisect.bisect_right(starts, m.start()) - 1]
+        at = m.start("alias")
+        before = [c for c in cites if c.end <= at and at - c.end <= 40
+                  and not re.search(r"[.!?]\s", text[c.end:at])]
+        if not before:
+            # "(hereafter RCEMIP)" names a project, not a paper; only a
+            # citation-like abbreviation (with a digit: "C13") is worth reporting.
+            if re.search(r"\d", name):
+                unlinked.append((name, line))
+            continue
+        target = max(before, key=lambda c: c.end)
+        a = Alias(name, target, line.page, line.lineno)
+        for u in re.finditer(rf"(?<![\w\-]){re.escape(name)}(?![\w\-])", text):
+            if u.start() < m.end():
+                continue            # the definition itself, or text before it
+            ul = lines[bisect.bisect_right(starts, u.start()) - 1]
+            a.uses.append(Cite(target.names, target.etal, target.year, target.suffix,
+                               ul.page, ul.lineno, text[max(0, u.start() - 60):u.end() + 25],
+                               u.start(), u.end(), alias=name))
+        aliases.append(a)
+    return aliases, unlinked
 
 
 # --- matching --------------------------------------------------------------
@@ -468,7 +582,9 @@ def author_problem(c, r):
 
 
 def check(cites, refs):
-    issues = defaultdict(list)       # category -> [(cite, message)]
+    """Match each citation to a reference (setting Cite.ref and Ref.cited) and
+    return the problems found, by category: {category: [(cite, message)]}."""
+    issues = defaultdict(list)
     seen = set()
     for c in cites:
         # The list pattern can pick up a leading word after a comma ("CRE,
@@ -484,7 +600,8 @@ def check(cites, refs):
                 c.names = trimmed.names
                 break
         dedup = (tuple(map(norm, c.names)), c.etal, c.year, c.suffix)
-        first_time = dedup not in seen
+        # Uses of an abbreviation repeat their citation's problems: count, don't flag.
+        first_time = dedup not in seen and not c.alias
         seen.add(dedup)
         cands = candidates(c, refs)
         if not cands:
@@ -505,7 +622,8 @@ def check(cites, refs):
                 have = ", ".join(r.year + (r.suffix or " (no letter)") for r in cands)
                 issues["suffix"].append((c, f"reference list has {have}"))
         best = min(exact, key=lambda r: (bool(author_problem(c, r)), r.index))
-        best.cited += 1
+        best.cited.append(c)
+        c.ref = best
         problem = author_problem(c, best)
         if problem and first_time:
             issues["authors"].append((c, f"{problem}:\n{best.label()}"))
@@ -548,68 +666,275 @@ def suggest(c, refs):
     return "\n".join(out[:3]) if out else "no near match in the reference list"
 
 
-# --- output ----------------------------------------------------------------
-
-def indent(s, pad=" " * 11):
-    return "\n".join(pad + l.strip() if i else l for i, l in enumerate(s.split("\n")))
-
-
-def report(source, cites, refs, issues):
-    out = [f"Read as: {source}",
-           f"{len(cites)} citations in the text, {len(refs)} reference entries.", ""]
-    p = out.append
-
-    def section(title, rows, fmt, note=""):
-        p(f"== {title} ({len(rows)})" + (f"  {note}" if note else ""))
-        for row in rows:
-            p(fmt(row))
-        p("")
-
-    def cite_fmt(row):
-        c, msg = row
-        return (f"  {where(c.page, c.lineno):>7}  {c.label()}\n"
-                f"           “…{c.context}…”\n"
-                f"           {indent(msg)}")
-
-    section("CITED BUT NOT IN REFERENCES", issues["missing"], cite_fmt)
-    section("NAME SPELT DIFFERENTLY FROM THE REFERENCE", issues["spelling"], cite_fmt)
-    section("YEAR LETTER MISMATCH", issues["suffix"], cite_fmt)
-    section("AUTHOR MISMATCH", issues["authors"], cite_fmt,
-            "(count, or second author; AMS uses et al. for 3+)")
-    section("IN REFERENCES BUT NEVER CITED",
-            [r for r in refs if r.year and not r.cited], lambda r: f"  {r.label()}")
+def duplicates(refs):
     keyed = defaultdict(list)
     for r in refs:
         if r.year:
             keyed[(norm(r.first), r.year, r.suffix, r.etal, tuple(map(norm, r.surnames)))].append(r)
-    section("POSSIBLE DUPLICATE REFERENCES", [rs for rs in keyed.values() if len(rs) > 1],
-            lambda rs: "\n".join(f"  {r.label()}" for r in rs))
-    section("REFERENCE ENTRIES NOT PARSED", [r for r in refs if not r.year],
-            lambda r: f"  {r.label()}",
-            "(no year found; may be a wrapped line or a heading: check by hand)")
+    return [rs for rs in keyed.values() if len(rs) > 1]
+
+
+# --- BibTeX ----------------------------------------------------------------
+
+# Leading words skipped when choosing a key's word: "What is the role of..." -> role.
+KEY_SKIP = {
+    "a", "an", "the", "on", "of", "in", "for", "to", "and", "or", "at", "by", "from",
+    "with", "into", "about", "as", "is", "are", "was", "were", "be", "do", "does",
+    "can", "could", "will", "would", "should", "what", "why", "how", "when", "where",
+    "which", "who", "whose", "whether",
+}
+# Old AMS DOIs contain a colon that PDF text often follows with a space:
+# "10.1175/1520-0493(1979)107,0963: TOAFMM.2.0.CO;2".
+DOI_RE = re.compile(r"(?:https?://\s?(?:dx\.)?doi\.org/\s?|doi:\s*)?(10\.\d{4,9}/\S+(?:(?<=:)\s\S+)?)", re.I)
+# "…title. J. Climate, 34(21), 8599–8613" (AMS, APA) or "…title, Mon. Weather Rev.,
+# 105, 1568–1589" (AGU). A journal name is capitalised words and connectives,
+# which keeps a title's "Part I: Evolution and dynamics" out of it.
+JWORD = r"(?:[A-Z][\w.'’&:\-]*|of|and|the|in|for|on|&|de|des|du|la|der|für|und)"
+VENUE_RE = re.compile(
+    rf"[.,?!]\s+(?P<journal>{JWORD}(?:\s+{JWORD})*),\s*(?P<volume>\d{{1,4}})"
+    r"(?:\s*\((?P<number>[^)]{1,12})\))?"
+    r"(?:,\s*(?P<pages>[A-Za-z]{0,3}\d+[A-Za-z0-9]*(?:\s*[\u2013\u2014-]+\s*[A-Za-z]{0,3}\d+)?))?")
+
+
+def bib_escape(s):
+    return re.sub(r"([&%$#_])", r"\\\1", s).replace("{", "").replace("}", "")
+
+
+def bib_persons(authors):
+    """'Riehl, H., and J. S. Malkus' -> 'Riehl, H. and Malkus, J. S.'.
+
+    Handles AMS order (first author inverted, the rest not) and APA order
+    (all inverted) by attaching each run of initials to its surname.
+    """
+    truncated = bool(re.search(r"\bet al\b|\bCoauthors\b", authors))
+    persons = []        # [surname, initials, suffix]
+    for chunk in (c.strip() for c in re.split(r",|\band\b|&", TRUNCATED_RE.sub("", authors))):
+        if not chunk:
+            continue
+        toks = chunk.split()
+        inits = [t for t in toks if INITIALS_RE.match(t)]
+        sufs = [t for t in toks if t.lower() in SUFFIXES]
+        sur = " ".join(t for t in toks if t not in inits and t not in sufs)
+        if sur:
+            persons.append([sur, " ".join(inits), " ".join(sufs)])
+        elif persons and inits and not persons[-1][1]:
+            persons[-1][1] = " ".join(inits)       # APA, and AMS's first author: "Houze, R. A."
+        elif persons and sufs:
+            persons[-1][2] = " ".join(sufs)        # "Houze, R. A., Jr."
+    out = []
+    for sur, inits, suf in persons:
+        if not inits and sur.isupper():
+            out.append("{" + sur + "}")            # corporate author: {IPCC}
+        else:
+            out.append(", ".join(x for x in (sur, suf, inits) if x))
+    if truncated:
+        out.append("others")
+    return " and ".join(out)
+
+
+def bib_fields(ref):
+    """Split a reference entry into BibTeX fields. Heuristic."""
+    f = {}
+    m = REF_YEAR_RE.search(ref.text[:400])
+    rest = ref.text[m.end():] if m else ref.text
+    rest = re.sub(r"^[a-z]?[).:,\s]+", "", rest)
+    d = DOI_RE.search(rest)
+    if d:
+        f["doi"] = d.group(1).rstrip(".,;)")
+        rest = rest[:d.start()]
+    rest = re.sub(r"\s*,?\s*https?://\S+", "", rest).strip(" .,")
+    venues = list(VENUE_RE.finditer(rest))
+    if venues:
+        # The last "Journal, volume" group is the venue; the title is before it.
+        v = venues[-1]
+        end = rest[v.start()]
+        f["title"] = rest[:v.start()].strip() + (end if end in "?!" else "")
+        f["journal"] = v.group("journal").strip()
+        f["volume"] = v.group("volume")
+        if v.group("number"):
+            f["number"] = v.group("number")
+        if v.group("pages"):
+            f["pages"] = re.sub(r"\s*[\u2013\u2014-]+\s*", "--", v.group("pages"))
+        return f
+    # Books, reports, conference papers: the title runs to the first sentence
+    # end followed by a capital; the rest goes in a note.
+    t = re.match(r"(?P<title>.+?[.?!])\s+(?=[A-Z])", rest)
+    f["title"] = t.group("title").rstrip(".") if t else rest
+    if t and rest[t.end():].strip(" ."):
+        f["note"] = rest[t.end():].strip(" .")
+    return f
+
+
+def bib_key(ref, title, used):
+    """<author><year><word>: first author's surname, year, first content word
+    of the title; a letter is appended if the key is taken."""
+    word = next((norm(w) for w in re.findall(r"[^\W\d_][\w'’-]*", title)
+                 if norm(w) and norm(w) not in KEY_SKIP), "")
+    base = norm(ref.first) + ref.year + word
+    key, n = base, 0
+    while key in used:
+        n += 1
+        key = base + chr(ord("a") + n)
+    used.add(key)
+    return key
+
+
+def to_bibtex(refs):
+    """Return the parsed references as BibTeX, setting each Ref.key."""
+    used, out = set(), []
+    for r in refs:
+        if not r.year:
+            continue
+        f = bib_fields(r)
+        r.key = bib_key(r, f["title"], used)
+        fields = [("author", bib_persons(r.authors)), ("title", bib_escape(f["title"])),
+                  ("journal", f.get("journal")), ("year", r.year), ("volume", f.get("volume")),
+                  ("number", f.get("number")), ("pages", f.get("pages")),
+                  ("note", f.get("note") and bib_escape(f["note"])), ("doi", f.get("doi")),
+                  ("citedcount", str(len(r.cited))), ("citedlines", ", ".join(places(r.cited)))]
+        out.append(f"% {where(r.page, r.lineno)}: {r.text}")
+        out.append(f"@{'article' if 'journal' in f else 'misc'}{{{r.key},")
+        out.append(",\n".join(f"    {k} = {{{v}}}" for k, v in fields if v))
+        out.append("}\n")
     return "\n".join(out)
 
 
-def dump_tsv(outdir, cites, refs):
-    outdir.mkdir(parents=True, exist_ok=True)
-    with open(outdir / "citations.tsv", "w") as f:
-        f.write("page\tline\tcited_as\tyear\tcontext\n")
-        for c in cites:
-            f.write(f"{c.page}\t{c.lineno}\t{c.label()}\t{c.year}{c.suffix}\t{c.context}\n")
-    with open(outdir / "references.tsv", "w") as f:
-        f.write("page\tline\tfirst\tn_authors\tyear\ttimes_cited\tentry\n")
-        for r in refs:
-            n = f"{len(r.surnames)}{'+' if r.etal else ''}"
-            f.write(f"{r.page}\t{r.lineno}\t{r.first}\t{n}\t{r.year}{r.suffix}\t{r.cited}\t{r.text}\n")
+# --- report ----------------------------------------------------------------
 
+def md(s):
+    return re.sub(r"([*_`<>\[\]|])", r"\\\1", s)
+
+
+def report(a):
+    out = []
+    p = out.append
+    parsed = [r for r in a.refs if r.year]
+    cited_refs = [r for r in parsed if r.cited]
+    uncited = [r for r in parsed if not r.cited]
+    unparsed = [r for r in a.refs if not r.year]
+    dups = duplicates(a.refs)
+    p(f"# Citation analysis: {md(a.path.name)}\n")
+    p(f"Read as: {a.source}. Generated {date.today().isoformat()} by analyse-citations. "
+      "Every flag is a lead to check, not a verdict.\n")
+    p("| | count |\n|---|---:|")
+    for k, v in [
+        ("In-text citations", len(a.cites)),
+        ("… uses of an abbreviation (e.g. “C13”)", sum(len(x.uses) for x in a.aliases)),
+        ("… matched to a reference", sum(1 for c in a.cites if c.ref)),
+        ("Reference entries", len(a.refs)),
+        ("… cited at least once", len(cited_refs)),
+        ("Cited but not in references", len(a.issues["missing"])),
+        ("Name spelt differently", len(a.issues["spelling"])),
+        ("Year letter mismatch", len(a.issues["suffix"])),
+        ("Author mismatch", len(a.issues["authors"])),
+        ("In references but never cited", len(uncited)),
+        ("Possible duplicate references", len(dups)),
+        ("Reference entries not parsed", len(unparsed)),
+    ]:
+        p(f"| {k} | {v} |")
+    p("")
+
+    def section(title, n, note=""):
+        p(f"## {title} ({n})\n")
+        if note:
+            p(f"{note}\n")
+
+    def cite_items(rows):
+        for c, msg in rows:
+            p(f"- **{where(c.page, c.lineno)}** {md(c.label())}  ")
+            p(f"  “…{md(c.context)}…”")
+            for m in msg.split("\n"):
+                p(f"  - {md(m.strip())}")
+        p("")
+
+    def ref_items(rs):
+        for r in rs:
+            p(f"- **{where(r.page, r.lineno)}** {md(r.text)}")
+        p("")
+
+    section("Cited but not in references", len(a.issues["missing"]))
+    cite_items(a.issues["missing"])
+    section("Name spelt differently from the reference", len(a.issues["spelling"]))
+    cite_items(a.issues["spelling"])
+    section("Year letter mismatch", len(a.issues["suffix"]))
+    cite_items(a.issues["suffix"])
+    section("Author mismatch", len(a.issues["authors"]),
+            "Author count or a co-author differs. AMS style uses et al. for 3+ authors.")
+    cite_items(a.issues["authors"])
+    section("In references but never cited", len(uncited))
+    ref_items(uncited)
+    section("Possible duplicate references", len(dups))
+    for rs in dups:
+        p("- " + "  \n  ".join(f"**{where(r.page, r.lineno)}** {md(r.text)}" for r in rs))
+    p("")
+    section("Reference entries not parsed", len(unparsed),
+            "No year found: a wrapped line, a heading or a malformed entry. Check by hand.")
+    ref_items(unparsed)
+
+    section("Abbreviated citations", len(a.aliases) + len(a.unlinked),
+            "Abbreviations defined with “hereafter”. Each later use counts as a citation.")
+    if a.aliases:
+        p("| Abbreviation | Stands for | Defined | Uses | Reference |\n|---|---|---|---:|---|")
+        for x in a.aliases:
+            ref = x.cite.ref.key if x.cite.ref else "not in references"
+            p(f"| {md(x.alias)} | {md(x.cite.label())} | {where(x.page, x.lineno)} "
+              f"| {len(x.uses)} | {md(ref)} |")
+        p("")
+    for name, line in a.unlinked:
+        p(f"- **{where(line.page, line.lineno)}** “{md(name)}” is defined with “hereafter”, "
+          "but no citation comes just before it, so its uses are not counted.")
+    if a.unlinked:
+        p("")
+
+    section("Citation counts", len(cited_refs),
+            "Times each reference is cited in the text, including uses of abbreviations. "
+            "Uncited references are listed above.")
+    p("| Cited | Reference | Key | Where |\n|---:|---|---|---|")
+    for r in sorted(cited_refs, key=lambda r: (-len(r.cited), norm(r.first), r.year)):
+        at = places(r.cited)
+        more = f" … (+{len(at) - 12})" if len(at) > 12 else ""
+        p(f"| {len(r.cited)} | {md(r.short())} | {r.key} | {', '.join(at[:12])}{more} |")
+    p("")
+    return "\n".join(out)
+
+
+def citations_tsv(a):
+    rows = ["page\tline\tcited_as\tkey\tcontext"]
+    for c in sorted(a.cites, key=lambda c: (c.page, c.lineno, c.pos)):
+        rows.append(f"{c.page}\t{c.lineno}\t{c.label()}\t{c.ref.key if c.ref else ''}\t{c.context}")
+    return "\n".join(rows) + "\n"
+
+
+# --- driver ----------------------------------------------------------------
 
 def run(path, line_numbers="auto"):
+    path = Path(path)
     lines, source = load(path, line_numbers)
     body, ref_lines, trailing = split_sections(lines)
     refs = parse_refs(ref_lines)
+    cites, text, starts = find_cites(body)
+    aliases, unlinked = find_aliases(cites, body, text, starts)
     # Tables and figure captions after the reference list cite papers too.
-    cites = find_cites(body) + find_cites(trailing)
-    return source, cites, refs, check(cites, refs)
+    cites += find_cites(trailing)[0]
+    for x in aliases:
+        cites += x.uses
+    issues = check(cites, refs)
+    to_bibtex(refs)        # sets the keys that the report and TSV use
+    return Analysis(path, source, cites, refs, issues, aliases, unlinked)
+
+
+def write(a, outdir):
+    """Write <stem>_report.md, <stem>_references.bib and <stem>_citations.tsv."""
+    outdir.mkdir(parents=True, exist_ok=True)
+    stem = a.path.stem
+    rep = report(a)
+    (outdir / f"{stem}_report.md").write_text(rep)
+    (outdir / f"{stem}_references.bib").write_text(
+        f"% Reference list of {a.path.name}, parsed by analyse-citations on "
+        f"{date.today().isoformat()}.\n% Heuristic: each entry has its raw text above "
+        f"it; check before use.\n\n" + to_bibtex(a.refs))
+    (outdir / f"{stem}_citations.tsv").write_text(citations_tsv(a))
+    return rep
 
 
 def main():
@@ -617,16 +942,18 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\nProvenance\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("file", type=Path, help="PDF, or a .txt already extracted")
+    ap.add_argument("-o", "--out", type=Path, metavar="DIR", default=Path("."),
+                    help="output directory (default: the current one)")
     ap.add_argument("--line-numbers", choices=["auto", "yes", "no"], default="auto",
                     help="line-numbered manuscript? (default: detect)")
-    ap.add_argument("--tsv", type=Path, metavar="DIR",
-                    help="also write citations.tsv and references.tsv")
+    ap.add_argument("-q", "--quiet", action="store_true", help="do not print the report")
     args = ap.parse_args()
-    source, cites, refs, issues = run(args.file, args.line_numbers)
-    print(report(source, cites, refs, issues))
-    if args.tsv:
-        dump_tsv(args.tsv, cites, refs)
-        print(f"Wrote {args.tsv}/citations.tsv and {args.tsv}/references.tsv")
+    a = run(args.file, args.line_numbers)
+    rep = write(a, args.out)
+    if not args.quiet:
+        print(rep)
+    stem = args.out / args.file.stem
+    print(f"Wrote {stem}_report.md, {stem}_references.bib and {stem}_citations.tsv")
 
 
 if __name__ == "__main__":
