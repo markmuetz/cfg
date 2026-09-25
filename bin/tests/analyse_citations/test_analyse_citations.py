@@ -5,11 +5,13 @@ The fixture is typeset twice, numbering every line and every 5th line, and
 both builds must give the same flags at the same manuscript line numbers.
 Needs pdflatex. Run: python3 ~/bin/tests/analyse_citations/test_analyse_citations.py
 """
+import io
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -50,7 +52,7 @@ class TestFixture(unittest.TestCase):
         self.assertEqual(flagged["missing"], {
             (4, "Malkus and Riehl 1958"),    # authors in the wrong order
             (6, "Houze 1989"),               # no such reference
-            (76, "Rutledge 1991"),           # cited in a figure caption only
+            (77, "Rutledge 1991"),           # cited in a figure caption only
         })
         self.assertEqual(flagged["suffix"], {(9, "Feng et al. 2021")})
         self.assertEqual(flagged["authors"], {(10, "Yuan et al. 2010")})
@@ -106,11 +108,54 @@ class TestFixture(unittest.TestCase):
         self.assertIn("| 3 | Cortado 2013 | cortado2013cold |", report)
         self.assertIn("C13 (= Cortado 2013)\tcortado2013cold", tsv)
 
+    def test_library_and_fetch(self):
+        with tempfile.TemporaryDirectory() as d:
+            lib = Path(d)
+            def item(key, bib=None):
+                (lib / key).mkdir()
+                if bib:
+                    (lib / key / "ref.bib").write_text(bib)
+            nesbitt = ("@article{{{key},\n    title = {{{title}}},\n    author = {{Nesbitt, Stephen W}},\n"
+                       "    year = {{2000}},\n    doi = {{10.1175/1520-0442(2000)013<4087:ACOPFI>2.0.CO;2}}\n}}\n")
+            title = "A census of precipitation features in the tropics using TRMM"
+            item("nesbitt2000census", nesbitt.format(key="nesbitt2000census", title=title))
+            item("nesbitt2000censussupplement",       # shares the DOI; must not win
+                 nesbitt.format(key="nesbitt2000censussupplement", title="Supplement for: " + title))
+            item("houze2004mesoscale")                 # no ref.bib: matched by key
+            item("liu2021global", "@article{liu2021global,\n    title = {{Global mesoscale convective "
+                 "system latent heating characteristics from GPM retrievals and an MCS tracking "
+                 "dataset}},\n    author = {Liu, Nana and Leung, L Ruby and Feng, Zhe},\n"
+                 "    year = {2021}\n}\n")               # no DOI: matched by title
+            a = ac.run(self.pdfs["every line"], library=lib)
+            held = {r.key: r.library for r in a.refs if r.library}
+            self.assertEqual(held, {"nesbitt2000census": "nesbitt2000census",
+                                    "houze2004mesoscale": "houze2004mesoscale",
+                                    "liu2021global": "liu2021global"})
+            fetch = [r.key for r in a.to_fetch()]
+            self.assertEqual(fetch[0], "cortado2013cold")          # cited 3 times
+            self.assertNotIn("houze2004mesoscale", fetch)
+            self.assertIn("| Cited references to fetch |", ac.report(a))
+
+            opened = []
+            with mock.patch("webbrowser.open", opened.append), \
+                    mock.patch("sys.stdout", io.StringIO()) as out:
+                ac.open_dois(a, 20)
+            # Only Zipser 1977 has a DOI among those to fetch; its old AMS form is rebuilt.
+            self.assertEqual(opened, ["https://doi.org/10.1175/1520-0493(1977)105%3C1568:MACSDA%3E2.0.CO;2"])
+            self.assertIn("No DOI, search by title: Cortado 2013", out.getvalue())
+
     def test_every_line(self):
         self.check(self.pdfs["every line"])
 
     def test_every_5th_line(self):
         self.check(self.pdfs["every 5th line"])
+
+
+class TestSici(unittest.TestCase):
+    def test_mangled_old_ams_dois_are_rebuilt(self):
+        self.assertEqual(ac.fix_sici("10.1175/15200450(2004)043,1095:SROLHP.2.0.CO;2"),
+                         "10.1175/1520-0450(2004)043<1095:SROLHP>2.0.CO;2")
+        self.assertEqual(ac.fix_sici("10.1175/JCLI-D-20-0997.1"), "10.1175/JCLI-D-20-0997.1")
 
 
 class TestUnicode(unittest.TestCase):

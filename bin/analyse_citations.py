@@ -36,6 +36,14 @@ Usage:
     analyse-citations manuscript.pdf -o review/      # write them in review/ instead
     analyse-citations manuscript.txt                 # text you extracted yourself
 
+    # Which cited papers do I already have? Adds an "In library" column and a
+    # "To fetch" list (DOI, else key, else author + year + title similarity).
+    analyse-citations manuscript.pdf --library ~/LitManData/literature
+    # ... and open the DOIs of the 10 most-cited missing ones in the browser.
+    analyse-citations manuscript.pdf --library ~/LitManData/literature --fetch 10
+
+Set ANALYSE_CITATIONS_LIBRARY to make --library the default.
+
 Needs Python 3.8+ and pdftotext (poppler: `brew install poppler`).
 Tests: python3 ~/bin/tests/analyse_citations/test_analyse_citations.py (needs pdflatex).
 
@@ -64,11 +72,14 @@ matching added after a hyphenated surname in a manuscript's text appeared
 unhyphenated in its reference list and was reported as missing; moved to cfg
 ~/bin as check-citations; renamed analyse-citations the same day when it
 gained the written report, the BibTeX list, citation counts and "hereafter"
-abbreviations. Used for reviewing and for marking dissertations.
+abbreviations; --library and --fetch added so that the most-cited papers
+missing from MM's library can be opened for download without the reference
+list ever leaving the machine. Used for reviewing and marking dissertations.
 """
 import argparse
 import bisect
 import difflib
+import os
 import re
 import subprocess
 import sys
@@ -77,6 +88,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from urllib.parse import quote
 
 PARTICLE = r"(?:(?:[Vv]an|[Vv]on|[Dd]e|[Dd]el|[Dd]er|[Dd]en|[Dd]a|[Dd]i|[Dd]u|[Ll]a|[Ll]e|[Tt]en|[Tt]er|[Dd]os)\s+){0,2}"
 SURNAME = PARTICLE + r"[A-Z][\w\u0300-\u036f'’\-]*\w"
@@ -176,6 +188,9 @@ class Ref:
     suffix: str = ""
     cited: list = field(default_factory=list)     # the Cites matched to it
     key: str = ""
+    title: str = ""
+    doi: str = ""
+    library: str = ""    # key of the matching entry in --library, if any
 
     @property
     def n(self):
@@ -243,6 +258,14 @@ class Analysis:
     issues: dict
     aliases: list
     unlinked: list   # abbreviations with no citation just before them: [(alias, Line)]
+    library: str = ""    # the --library directory, if one was checked
+
+    def to_fetch(self):
+        """Cited references missing from the library, most cited first."""
+        if not self.library:
+            return []
+        return sorted((r for r in self.refs if r.year and r.cited and not r.library),
+                      key=lambda r: (-len(r.cited), norm(r.first), r.year))
 
 
 # --- text extraction -------------------------------------------------------
@@ -285,7 +308,7 @@ def to_lines(text, margin=None):
             if m and m.end(1) == margin:
                 lineno = last = int(m.group(1))
                 raw = raw[m.end():]
-            elif raw.strip() and last:
+            elif raw.strip() and last and not re.fullmatch(r"\s*\d{1,5}\s*", raw):
                 # Only every nth line numbered (lineno's \modulolinenumbers): count on.
                 last += 1
                 lineno = last
@@ -696,6 +719,25 @@ VENUE_RE = re.compile(
     r"(?:,\s*(?P<pages>[A-Za-z]{0,3}\d+[A-Za-z0-9]*(?:\s*[\u2013\u2014-]+\s*[A-Za-z]{0,3}\d+)?))?")
 
 
+SICI_RE = re.compile(r"^10\.1175/(\d{4})-?(\d{3}[\dX])\((\d{4})\)(\d{3})[,<]?(\d{4}):"
+                     r"([A-Z0-9]+)[.>]?(2\.0\.CO;2)$", re.I)
+
+
+def fix_sici(doi):
+    """Rebuild an old AMS DOI as PDF text mangles it: '<' and '>' come out as
+    ',' and '.', and the ISSN hyphen may go: "10.1175/15200450(2004)043,1095:
+    SROLHP.2.0.CO;2" -> "10.1175/1520-0450(2004)043<1095:SROLHP>2.0.CO;2"."""
+    m = SICI_RE.match(doi.replace(" ", ""))
+    if not m:
+        return doi
+    a, b, year, vol, page, code, tail = m.groups()
+    return f"10.1175/{a}-{b}({year}){vol}<{page}:{code.upper()}>{tail.upper()}"
+
+
+def doi_url(doi):
+    return "https://doi.org/" + quote(doi, safe="/():;.-_")
+
+
 def bib_escape(s):
     return re.sub(r"([&%$#_])", r"\\\1", s).replace("{", "").replace("}", "")
 
@@ -740,7 +782,14 @@ def bib_fields(ref):
     rest = re.sub(r"^[a-z]?[).:,\s]+", "", rest)
     d = DOI_RE.search(rest)
     if d:
-        f["doi"] = d.group(1).rstrip(".,;)")
+        doi = d.group(1)
+        # An old AMS DOI cut short by a space, "10.1175/1520-0469(1984) 041,0113:
+        # SIOTMC.2.0.CO;2": take the next one or two words if they end it.
+        if "(" in doi and "CO;2" not in doi:
+            more = re.match(r"\s?(\S*CO;2|\S+\s\S*CO;2)", rest[d.end():])
+            if more:
+                doi += more.group(1).replace(" ", "")
+        f["doi"] = fix_sici(doi.rstrip(".,;)") if "CO;2" not in doi else doi.rstrip(".,"))
         rest = rest[:d.start()]
     rest = re.sub(r"\s*,?\s*https?://\S+", "", rest).strip(" .,")
     venues = list(VENUE_RE.finditer(rest))
@@ -787,16 +836,89 @@ def to_bibtex(refs):
             continue
         f = bib_fields(r)
         r.key = bib_key(r, f["title"], used)
+        r.title, r.doi = f["title"], f.get("doi", "")
         fields = [("author", bib_persons(r.authors)), ("title", bib_escape(f["title"])),
                   ("journal", f.get("journal")), ("year", r.year), ("volume", f.get("volume")),
                   ("number", f.get("number")), ("pages", f.get("pages")),
                   ("note", f.get("note") and bib_escape(f["note"])), ("doi", f.get("doi")),
-                  ("citedcount", str(len(r.cited))), ("citedlines", ", ".join(places(r.cited)))]
+                  ("citedcount", str(len(r.cited))), ("citedlines", ", ".join(places(r.cited))),
+                  ("inlibrary", r.library)]
         out.append(f"% {where(r.page, r.lineno)}: {r.text}")
         out.append(f"@{'article' if 'journal' in f else 'misc'}{{{r.key},")
         out.append(",\n".join(f"    {k} = {{{v}}}" for k, v in fields if v))
         out.append("}\n")
     return "\n".join(out)
+
+
+# --- library ---------------------------------------------------------------
+
+@dataclass
+class LibEntry:
+    key: str
+    doi: str
+    first: str       # first author's surname, norm()ed
+    year: str
+    title: str       # letters and spaces only, lower case
+
+
+BIB_ENTRY_RE = re.compile(r"@\w+\s*\{\s*([^,\s]+)\s*,(.*?)\n\s*\}", re.S)
+
+
+def bib_value(body, name):
+    m = re.search(rf"^\s*{name}\s*=\s*(.+?),?\s*$", body, re.M | re.I)
+    return re.sub(r"[{}\"]", "", m.group(1)).strip() if m else ""
+
+
+def plain_title(t):
+    return " ".join(re.sub(r"[^a-z0-9 ]", " ", unicodedata.normalize("NFKD", t).lower()).split())
+
+
+def load_library(directory):
+    """Every entry of every .bib file under directory, plus, for litman
+    (~/LitManData/literature: one directory per item, named by its key), the
+    items that have no ref.bib, which can then only be matched by key."""
+    root = Path(directory).expanduser()
+    entries = [LibEntry(d.name, "", "", "", "") for d in sorted(root.iterdir())
+               if d.is_dir() and not any(d.glob("*.bib"))]
+    for path in sorted(root.rglob("*.bib")):
+        for m in BIB_ENTRY_RE.finditer(path.read_text(errors="replace")):
+            body = m.group(2)
+            author = bib_value(body, "author").split(" and ")[0]
+            surname = author.split(",")[0] if "," in author else (author.split() or [""])[-1]
+            entries.append(LibEntry(m.group(1), bib_value(body, "doi").lower(), norm(surname),
+                                    bib_value(body, "year")[:4], plain_title(bib_value(body, "title"))))
+    return entries
+
+
+def match_library(refs, entries):
+    """Set Ref.library to the key of the library entry for the same work:
+    same DOI; else the same key (for items with no bib); else same first
+    author and year with a similar title (ratio 0.8)."""
+    by_doi, by_key = defaultdict(list), {e.key: e for e in entries}
+    by_author_year = defaultdict(list)
+    for e in entries:
+        if e.doi:
+            by_doi[fix_sici(e.doi).lower()].append(e)
+        by_author_year[(e.first, e.year)].append(e)
+
+    def most_like(title, cands):
+        """(similarity, key, entry) of the candidate whose title is closest."""
+        return max(((difflib.SequenceMatcher(None, title, c.title).ratio(), c.key, c)
+                    for c in cands), default=None, key=lambda t: (t[0], -len(t[1])))
+
+    for r in refs:
+        if not r.year:
+            continue
+        title = plain_title(r.title)
+        # A supplement or preprint can share its paper's DOI: take the entry
+        # whose title is closest ("Supplement for: …" loses).
+        same_doi = by_doi.get(r.doi.lower(), []) if r.doi else []
+        e = most_like(title, same_doi)[2] if same_doi else by_key.get(r.key)
+        if not e:
+            best = most_like(title, [c for c in by_author_year[(norm(r.first), r.year)] if c.title])
+            e = best[2] if best and best[0] >= 0.8 else None
+        if e:
+            r.library = e.key
 
 
 # --- report ----------------------------------------------------------------
@@ -830,7 +952,8 @@ def report(a):
         ("In references but never cited", len(uncited)),
         ("Possible duplicate references", len(dups)),
         ("Reference entries not parsed", len(unparsed)),
-    ]:
+    ] + ([("Cited references already in the library", sum(1 for r in cited_refs if r.library)),
+          ("Cited references to fetch", len(a.to_fetch()))] if a.library else []):
         p(f"| {k} | {v} |")
     p("")
 
@@ -889,25 +1012,40 @@ def report(a):
     section("Citation counts", len(cited_refs),
             "Times each reference is cited in the text, including uses of abbreviations. "
             "Uncited references are listed above.")
-    p("| Cited | Reference | Key | Where |\n|---:|---|---|---|")
+    lib = " In library |" if a.library else ""
+    p(f"| Cited | Reference | Key |{lib} Where |\n|---:|---|---|{'---|' if lib else ''}---|")
     for r in sorted(cited_refs, key=lambda r: (-len(r.cited), norm(r.first), r.year)):
         at = places(r.cited)
         more = f" … (+{len(at) - 12})" if len(at) > 12 else ""
-        p(f"| {len(r.cited)} | {md(r.short())} | {r.key} | {', '.join(at[:12])}{more} |")
+        held = f" {r.library or '—'} |" if a.library else ""
+        p(f"| {len(r.cited)} | {md(r.short())} | {r.key} |{held} {', '.join(at[:12])}{more} |")
     p("")
+
+    if a.library:
+        fetch = a.to_fetch()
+        section("To fetch", len(fetch),
+                f"Cited references not found in {md(a.library)}, most cited first. "
+                "`--fetch N` opens the first N DOIs in the browser.")
+        p("| Cited | Reference | Title | DOI |\n|---:|---|---|---|")
+        for r in fetch:
+            title = r.title if len(r.title) <= 80 else r.title[:80] + "…"
+            doi = f"[{md(r.doi)}]({doi_url(r.doi)})" if r.doi else "none: search by title"
+            p(f"| {len(r.cited)} | {md(r.short())} | {md(title)} | {doi} |")
+        p("")
     return "\n".join(out)
 
 
 def citations_tsv(a):
-    rows = ["page\tline\tcited_as\tkey\tcontext"]
+    rows = ["page\tline\tcited_as\tkey\tin_library\tcontext"]
     for c in sorted(a.cites, key=lambda c: (c.page, c.lineno, c.pos)):
-        rows.append(f"{c.page}\t{c.lineno}\t{c.label()}\t{c.ref.key if c.ref else ''}\t{c.context}")
+        key, held = (c.ref.key, c.ref.library) if c.ref else ("", "")
+        rows.append(f"{c.page}\t{c.lineno}\t{c.label()}\t{key}\t{held}\t{c.context}")
     return "\n".join(rows) + "\n"
 
 
 # --- driver ----------------------------------------------------------------
 
-def run(path, line_numbers="auto"):
+def run(path, line_numbers="auto", library=None):
     path = Path(path)
     lines, source = load(path, line_numbers)
     body, ref_lines, trailing = split_sections(lines)
@@ -919,8 +1057,23 @@ def run(path, line_numbers="auto"):
     for x in aliases:
         cites += x.uses
     issues = check(cites, refs)
-    to_bibtex(refs)        # sets the keys that the report and TSV use
-    return Analysis(path, source, cites, refs, issues, aliases, unlinked)
+    to_bibtex(refs)        # sets the keys, titles and DOIs used below
+    if library:
+        match_library(refs, load_library(library))
+    return Analysis(path, source, cites, refs, issues, aliases, unlinked,
+                    str(library) if library else "")
+
+
+def open_dois(a, n):
+    """Open the DOIs of the n most-cited references to fetch in the browser;
+    list those among them that have no DOI."""
+    import webbrowser
+    for r in a.to_fetch()[:n]:
+        if r.doi:
+            print(f"Opening {r.short()}: {doi_url(r.doi)}")
+            webbrowser.open(doi_url(r.doi))
+        else:
+            print(f"No DOI, search by title: {r.short()}: {r.title}")
 
 
 def write(a, outdir):
@@ -947,13 +1100,24 @@ def main():
     ap.add_argument("--line-numbers", choices=["auto", "yes", "no"], default="auto",
                     help="line-numbered manuscript? (default: detect)")
     ap.add_argument("-q", "--quiet", action="store_true", help="do not print the report")
+    ap.add_argument("--library", metavar="DIR", default=os.environ.get("ANALYSE_CITATIONS_LIBRARY"),
+                    help="directory of .bib files (e.g. ~/LitManData/literature) to check "
+                         "which cited references you already hold (default: "
+                         "$ANALYSE_CITATIONS_LIBRARY)")
+    ap.add_argument("--fetch", type=int, metavar="N",
+                    help="open the DOIs of the N most-cited references not in the "
+                         "library in the browser, to download them")
     args = ap.parse_args()
-    a = run(args.file, args.line_numbers)
+    if args.fetch and not args.library:
+        ap.error("--fetch needs --library, to know what you already have")
+    a = run(args.file, args.line_numbers, args.library)
     rep = write(a, args.out)
     if not args.quiet:
         print(rep)
     stem = args.out / args.file.stem
     print(f"Wrote {stem}_report.md, {stem}_references.bib and {stem}_citations.tsv")
+    if args.fetch:
+        open_dois(a, args.fetch)
 
 
 if __name__ == "__main__":
