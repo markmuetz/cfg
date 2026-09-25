@@ -1,0 +1,308 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.9"
+# dependencies = ["pymupdf>=1.24"]
+# ///
+"""Extract the comments (annotations) from a PDF into <name>_comments.md.
+
+Every annotation is included: sticky notes, text boxes, highlights,
+underlines, strike-outs, insertion marks and drawings, with the text that a
+highlight (or underline, strike-out) marks, the author, the date and any
+replies, which are nested under the comment they answer. Comments are grouped
+by page in reading order. A comment that quotes no text gets the printed text
+under or beside it ("near: ..."). Freehand drawings (pen strokes, e.g. from an
+iPad) are left out unless --drawings is given: they carry no text.
+
+Each comment is located by manuscript line number when the PDF has them: the
+column of rising numbers in the margin is found and every comment is placed
+against it ("l.45-46"), interpolating when only every 5th line is numbered.
+Without line numbers, comments are located by page only.
+
+Runs locally: nothing is sent anywhere.
+
+Usage:
+    extract-comments paper.pdf               # writes ./paper_comments.md
+    extract-comments paper.pdf -o notes/     # writes notes/paper_comments.md
+    extract-comments paper.pdf --print       # and prints it
+    extract-comments paper.pdf --skip-bare   # leave out marks with no comment
+
+Needs uv (it runs as a uv script and fetches PyMuPDF on first use).
+Tests: ~/bin/tests/extract_comments/test_extract_comments.py (needs pdflatex).
+
+Provenance
+----------
+Written on 2026-09-25 by Claude (Claude Code, model Claude Opus 5.5) for Mark
+Muetzelfeldt, alongside analyse-citations, whose margin line-number detection
+it follows. Tested on a line-numbered LaTeX fixture annotated with PyMuPDF.
+"""
+import argparse
+import re
+import statistics
+import sys
+from collections import Counter
+from dataclasses import dataclass, field
+from datetime import date
+from pathlib import Path
+
+import pymupdf
+
+SKIP = {"Link", "Widget", "Popup"}
+MARKUP = {"Highlight", "Underline", "StrikeOut", "Squiggly"}
+KIND = {"Text": "Note", "FreeText": "Text box", "Highlight": "Highlight",
+        "Underline": "Underline", "StrikeOut": "Strike-out", "Squiggly": "Squiggly",
+        "Caret": "Insert", "Ink": "Drawing", "Square": "Box", "Circle": "Circle",
+        "Line": "Line", "Polygon": "Polygon", "PolyLine": "Polyline", "Stamp": "Stamp",
+        "FileAttachment": "Attachment", "Sound": "Sound"}
+
+
+@dataclass
+class Comment:
+    page: int                  # 1-based
+    kind: str
+    y0: float
+    y1: float
+    x0: float
+    author: str
+    when: str
+    text: str
+    quoted: str
+    xref: int
+    irt: int                   # xref of the comment this one replies to, or 0
+    rect: tuple = ()           # the annotation's (x0, y0, x1, y1)
+    lines: tuple = None        # (first, last) manuscript line numbers
+    replies: list = field(default_factory=list)
+    near: str = ""             # printed text under or beside it
+
+
+# --- margin line numbers -----------------------------------------------------
+
+def margin_numbers(doc):
+    """{page: [(y, number), ...]} for the manuscript line numbers, or {}.
+
+    Line numbers are right-aligned in one margin column: many small integers
+    sharing a right edge, rising down the document. Both margins are tried.
+    """
+    hits = []                  # (side, right edge, page, y centre, number)
+    for pno, page in enumerate(doc, 1):
+        w = page.rect.width
+        for x0, y0, x1, y1, word, *_ in page.get_text("words"):
+            if re.fullmatch(r"\d{1,5}", word):
+                side = "left" if x1 < 0.2 * w else "right" if x0 > 0.8 * w else None
+                if side:
+                    hits.append((side, round(x1), pno, (y0 + y1) / 2, int(word)))
+    best = {}
+    for side in ("left", "right"):
+        cols = Counter(h[1] for h in hits if h[0] == side)
+        if not cols:
+            continue
+        col = cols.most_common(1)[0][0]
+        sel = sorted((h for h in hits if h[0] == side and abs(h[1] - col) <= 2),
+                     key=lambda h: (h[2], h[3]))
+        nums = [h[4] for h in sel]
+        rising = sum(0 < b - a <= 10 for a, b in zip(nums, nums[1:]))
+        if len(nums) >= 10 and rising >= 0.8 * (len(nums) - 1) and len(nums) > len(best.get("sel", [])):
+            best = {"sel": sel}
+    pages = {}
+    for _, _, pno, y, n in best.get("sel", []):
+        pages.setdefault(pno, []).append((y, n))
+    return pages
+
+
+def line_at(points, y):
+    """Line number at height y, interpolated between the numbered lines around
+    it; None if y is well outside the numbered text (a header or margin)."""
+    if not points:
+        return None
+    if len(points) == 1:
+        return points[0][1]
+    steps = [(y2 - y1) / (n2 - n1) for (y1, n1), (y2, n2) in zip(points, points[1:]) if n2 > n1]
+    spacing = statistics.median(steps) if steps else 12
+    # Text can run up to one numbering step past the first and last printed
+    # numbers on a page (4 lines when every 5th line is numbered).
+    every = statistics.median([n2 - n1 for (_, n1), (_, n2) in zip(points, points[1:])] or [1])
+    reach = (every + 0.5) * spacing
+    if y < points[0][0] - reach or y > points[-1][0] + reach:
+        return None
+    for (ya, na), (yb, nb) in zip(points, points[1:]):
+        if y <= yb or (yb, nb) == points[-1]:
+            break
+    return max(1, round(na + (y - ya) * (nb - na) / (yb - ya))) if yb != ya else na
+
+
+# --- annotations -------------------------------------------------------------
+
+def when(info):
+    """'D:20260925114503+01'00'' -> '2026-09-25 11:45'."""
+    d = info.get("modDate") or info.get("creationDate") or ""
+    m = re.match(r"D?:?(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?", d)
+    if not m:
+        return ""
+    y, mo, dd, hh, mi = m.groups()
+    return f"{y}-{mo}-{dd}" + (f" {hh}:{mi}" if hh and mi else "")
+
+
+def quoted_text(page, annot, words):
+    """The text a highlight, underline or strike-out marks: the whole words
+    whose centre lies in one of its quads (one quad per marked line), each
+    word once, in reading order."""
+    v = annot.vertices or []
+    quads = [pymupdf.Quad(v[i:i + 4]).rect for i in range(0, len(v) - 3, 4)]
+    hit = [w for w in words
+           if any(pymupdf.Point((w[0] + w[2]) / 2, (w[1] + w[3]) / 2) in q for q in quads)]
+    return join_words(sorted(hit, key=lambda w: (w[5], w[6], w[7])))
+
+
+def join_words(words):
+    """Join words, undoing hyphenation at line ends: "comprehen-" + "sive"
+    -> "comprehensive"; "IM-" + "ERG" keeps its hyphen ("IM-ERG")."""
+    out = ""
+    for i, w in enumerate(words):
+        text = w[4]
+        prev = words[i - 1] if i else None
+        if prev and prev[4].endswith("-") and (prev[5], prev[6]) != (w[5], w[6]):
+            out = (out[:-1] if text[:1].islower() else out) + text
+        else:
+            out += (" " if out else "") + text
+    return out
+
+
+def extract(path, drawings=False):
+    doc = pymupdf.open(path)
+    numbers = margin_numbers(doc)
+    comments = []
+    for pno, page in enumerate(doc, 1):
+        words = page.get_text("words")
+        for annot in page.annots():
+            kind = annot.type[1]
+            if kind in SKIP or (kind == "Ink" and not drawings):
+                continue
+            info = annot.info
+            r = annot.rect
+            if kind in MARKUP and annot.vertices:
+                # Locate by the first and last marked lines, not the bounding box.
+                qs = [pymupdf.Quad(annot.vertices[i:i + 4]).rect
+                      for i in range(0, len(annot.vertices) - 3, 4)]
+                ya, yb = (qs[0].y0 + qs[0].y1) / 2, (qs[-1].y0 + qs[-1].y1) / 2
+            elif kind in ("Text", "Caret"):
+                ya = yb = (r.y0 + r.y1) / 2      # an icon: its middle
+            elif kind == "FreeText":
+                ya = yb = r.y0 + 4               # a text box points from its top edge
+            else:
+                ya, yb = r.y0 + 2, r.y1 - 2
+            c = Comment(pno, KIND.get(kind, kind), min(ya, yb), max(ya, yb), r.x0,
+                        info.get("title", "").strip(), when(info),
+                        (info.get("content") or "").strip(),
+                        quoted_text(page, annot, words) if kind in MARKUP else "",
+                        annot.xref, getattr(annot, "irt_xref", 0) or 0, (r.x0, r.y0, r.x1, r.y1))
+            comments.append(c)
+    by_xref = {c.xref: c for c in comments}
+    top = []
+    for c in comments:
+        parent = by_xref.get(c.irt)
+        (parent.replies if parent else top).append(c)
+    top.sort(key=lambda c: (c.page, round(c.y0), c.x0))
+    for c in top + [r for c in top for r in c.replies]:
+        pts = numbers.get(c.page, [])
+        first, last = line_at(pts, c.y0), line_at(pts, c.y1)
+        if first:
+            c.lines = (first, last or first)
+        if not c.quoted:
+            c.near = near_text(doc[c.page - 1], c)
+    return top, bool(numbers), len(comments)
+
+
+def clip(t, n=100):
+    t = re.sub(r"^\d{1,5}\s+", "", " ".join(t.split()))    # a margin line number
+    return t if len(t) <= n else t[:n].rsplit(" ", 1)[0] + "…"
+
+
+def near_text(page, c):
+    """The printed text a comment sits on: under a drawing or box, else the
+    text line level with it (an icon, a text box, marks in the margin)."""
+    words = page.get_text("words")
+    if c.kind not in ("Note", "Insert", "Text box"):
+        # Whole words the marks touch, in reading order (block, line, word).
+        r = pymupdf.Rect(c.rect)
+        under = sorted((w for w in words if pymupdf.Rect(w[:4]).intersects(r)),
+                       key=lambda w: (w[5], w[6], w[7]))
+        if under:
+            return clip(" ".join(w[4] for w in under))
+    yc = (c.y0 + c.y1) / 2
+    words = sorted((w for w in words
+                    if abs((w[1] + w[3]) / 2 - yc) < 6 and not re.fullmatch(r"\d{1,5}", w[4])),
+                   key=lambda w: w[0])
+    return clip(" ".join(w[4] for w in words))
+
+
+# --- output ------------------------------------------------------------------
+
+def where(c):
+    if not c.lines:
+        return f"p.{c.page}"
+    a, b = c.lines
+    return f"l.{a}" if a == b else f"l.{a}–{b}"
+
+
+def byline(c):
+    who = ", ".join(x for x in (c.author, c.when) if x)
+    return f" — *{who}*" if who else ""
+
+
+def block(text, indent):
+    return "\n".join(f"{indent}{line}" if line.strip() else indent.rstrip() for line in text.split("\n"))
+
+
+def to_markdown(path, top, numbered, total, skip_bare=False):
+    shown = [c for c in top if not (skip_bare and not c.text and not c.replies)]
+    replies = sum(len(c.replies) for c in top)
+    out = [f"# Comments: {path.name}\n",
+           f"{len(shown)} comments" + (f" and {replies} repl{'y' if replies == 1 else 'ies'}"
+                                        if replies else "") +
+           f" on {len({c.page for c in shown})} pages. Located by "
+           + ("manuscript line number." if numbered else "page (the PDF has no line numbers).")
+           + f" Extracted {date.today().isoformat()} by extract-comments.\n"]
+    page = None
+    for c in shown:
+        if c.page != page:
+            page = c.page
+            out.append(f"## Page {page}\n")
+        out.append(f"- **{where(c)}** {c.kind}{byline(c)}")
+        if c.near:
+            out.append(f"  *near:* \u201c{c.near}\u201d")
+        if c.quoted:
+            out.append(block("> " + c.quoted, "  "))
+        if c.text:
+            out.append(block(c.text, "  "))
+        for r in c.replies:
+            out.append(f"  - Reply{byline(r)}")
+            if r.text:
+                out.append(block(r.text, "    "))
+        out.append("")
+    return "\n".join(out)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\nProvenance\n")[0],
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("file", type=Path, help="the PDF")
+    ap.add_argument("-o", "--out", type=Path, metavar="DIR", default=Path("."),
+                    help="output directory (default: the current one)")
+    ap.add_argument("--print", action="store_true", help="also print the markdown")
+    ap.add_argument("--drawings", action="store_true",
+                    help="include freehand drawings (pen strokes), left out by default")
+    ap.add_argument("--skip-bare", action="store_true",
+                    help="leave out highlights and other marks that have no comment text")
+    args = ap.parse_args()
+    top, numbered, total = extract(args.file, args.drawings)
+    md = to_markdown(args.file, top, numbered, total, args.skip_bare)
+    args.out.mkdir(parents=True, exist_ok=True)
+    dest = args.out / f"{args.file.stem}_comments.md"
+    dest.write_text(md)
+    if args.print:
+        print(md)
+    print(f"Wrote {dest}: {total} annotation{'' if total == 1 else 's'}"
+          + ("" if numbered else " (no line numbers found: located by page)"), file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()
