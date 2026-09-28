@@ -158,6 +158,18 @@ class TestSici(unittest.TestCase):
         self.assertEqual(ac.fix_sici("10.1175/JCLI-D-20-0997.1"), "10.1175/JCLI-D-20-0997.1")
 
 
+class TestHeading(unittest.TestCase):
+    def test_reference_headings(self):
+        for head in ["References", "Reference", "REFERENCE", "7. Reference", "References Cited"]:
+            with tempfile.TemporaryDirectory() as d:
+                path = Path(d) / "m.txt"
+                path.write_text(f"As in Smith (2019).\n{head}\n"
+                                "Smith, J., 2019: Title. J. Climate, 32, 1-20.\n")
+                a = ac.run(path)
+                self.assertEqual(len(a.refs), 1, head)
+                self.assertFalse(a.issues["missing"], head)
+
+
 class TestUnicode(unittest.TestCase):
     """Accents as Word-made PDFs often extract: decomposed, or as a separate
     spacing mark with a stray space ("N´ un˜ez")."""

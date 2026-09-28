@@ -132,8 +132,8 @@ STOP = {
 }
 
 REF_HEAD_RE = re.compile(
-    r"^\s*(?:[\dIVX]+\.?\s*)?(REFERENCES|References|Bibliography|BIBLIOGRAPHY|"
-    r"Literature Cited|LITERATURE CITED|REFERENCES CITED|References Cited)\s*$")
+    r"^\s*(?:[\dIVX]+\.?\s*)?(REFERENCES?|References?|Bibliography|BIBLIOGRAPHY|"
+    r"Literature Cited|LITERATURE CITED|REFERENCES? CITED|References? Cited)\s*$")
 REF_END_RE = re.compile(
     r"^\s*(LIST OF (FIGURES|TABLES)|List of (Figures|Tables)|TABLES?\s*$|"
     r"(TABLE|Table)\s+\d+\.|(FIG|Fig)\.\s*\d+\.|(FIGURE|Figure)\s+\d+\.|"
