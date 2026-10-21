@@ -11,6 +11,8 @@ comment is found with its text, reply and manuscript line numbers, and that
 only strike-outs and insertions quote text.
 Needs pdflatex. Run: ~/bin/tests/extract_comments/test_extract_comments.py
 """
+import importlib.machinery
+import importlib.util
 import re
 import shutil
 import subprocess
@@ -99,7 +101,7 @@ def run(pdf, *args):
 
 
 def comment_lines(md):
-    """'- **l.6** Highlight — *Referee 1, …*' -> ('l.6', 'Highlight', 'Referee 1')."""
+    """'- **L6** Highlight — *Referee 1, …*' -> ('L6', 'Highlight', 'Referee 1')."""
     out = []
     for m in re.finditer(r"^- \*\*(\S+)\*\* (.+?)(?: \u2014 \*([^,*]*)[^\n]*)?$", md, re.M):
         out.append((m.group(1), m.group(2), m.group(3) or ""))
@@ -143,15 +145,15 @@ class TestExtractComments(unittest.TestCase):
     def expected(self):
         at = self.at
         return [
-            ("p.1", "Note", ""),                                   # top margin: no line
-            (f"l.{at['Zipser (1977)']}", "Highlight", "Referee 1"),
-            (f"l.{at['Houze (1989, 2018)']}", "Note", "Referee 1"),
-            (f"l.{at['Land and ocean differ']}", "Insert", ""),
-            (f"l.{at['Elsaesser et al. (2022)']}", "Highlight", ""),
-            (f"l.{at['future changes']}", "Strike-out", "Referee 1"),
-            (f"l.{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}", "Strike-out", "Referee 1"),
-            (f"l.{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}", "Highlight", ""),
-            (f"l.{at['Mapes, B. E.']}", "Text box", ""),
+            ("p1", "Note", ""),                                   # top margin: no line
+            (f"L{at['Zipser (1977)']}", "Highlight", "Referee 1"),
+            (f"L{at['Houze (1989, 2018)']}", "Note", "Referee 1"),
+            (f"L{at['Land and ocean differ']}", "Insert", ""),
+            (f"L{at['Elsaesser et al. (2022)']}", "Highlight", ""),
+            (f"L{at['future changes']}", "Strike-out", "Referee 1"),
+            (f"L{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}", "Strike-out", "Referee 1"),
+            (f"L{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}", "Highlight", ""),
+            (f"L{at['Mapes, B. E.']}", "Text box", ""),
         ]
 
     def test_every_line(self):
@@ -180,7 +182,7 @@ class TestExtractComments(unittest.TestCase):
     def test_no_line_numbers(self):
         md = self.md["plain"]
         self.assertIn("Located by page (the PDF has no line numbers)", md)
-        self.assertEqual({w for w, _, _ in comment_lines(md)}, {"p.1", "p.3"})
+        self.assertEqual({w for w, _, _ in comment_lines(md)}, {"p1", "p3"})
 
     def test_drawings_only_on_request(self):
         self.assertNotIn("Drawing", self.md["every"])
@@ -191,20 +193,20 @@ class TestExtractComments(unittest.TestCase):
         sections = re.split(r"^## ", rv, flags=re.M)
         get = lambda title: next(x for x in sections if x.startswith(title))
         major, minor, tech = get("Major comments"), get("Minor comments"), get("Technical corrections")
-        self.assertIn(f"1. L.{at['Houze (1989, 2018)']}: Is 1989 in the list?\n   Second line.", major)
-        self.assertIn(f'2. L.{at["future changes"]}: "future changes" \u2192 projected changes', tech)
-        self.assertIn(f"3. L.{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}: "
+        self.assertIn(f"1. L{at['Houze (1989, 2018)']}: Is 1989 in the list?\n   Second line.", major)
+        self.assertIn(f'2. L{at["future changes"]}: "future changes" \u2192 projected changes', tech)
+        self.assertIn(f"3. L{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}: "
                       '"Cold pools organise (hereafter RCEMIP)" \u2192 Rephrase.', tech)
         # Untagged comments are minor, in document order; replies follow their item.
-        self.assertIn(f'1. L.{at["Land and ocean differ"]}: insert "The"', tech)
+        self.assertIn(f'1. L{at["Land and ocean differ"]}: insert "The"', tech)
         self.assertEqual(re.findall(r"^\d+\. (\S+): (.*)$", minor, re.M), [
-            ("p.1", "A general comment in the top margin."),
-            (f"L.{at['Zipser (1977)']}", "Check the year."),
-            (f"L.{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}", "Hyphenated."),
-            (f"L.{at['Mapes, B. E.']}", "Never cited?"),
+            ("p1", "A general comment in the top margin."),
+            (f"L{at['Zipser (1977)']}", "Check the year."),
+            (f"L{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}", "Hyphenated."),
+            (f"L{at['Mapes, B. E.']}", "Never cited?"),
         ])
         self.assertIn("   - Reply (Author): Checked: fine.", minor)
-        self.assertIn(f'- L.{at["Elsaesser et al. (2022)"]}: highlight\n', get("Marks without"))
+        self.assertIn(f'- L{at["Elsaesser et al. (2022)"]}: highlight\n', get("Marks without"))
         # Only deleted and inserted text is quoted.
         for text in ("Zipser (1977)", "is not a citation", "Elsaesser", "near:", "described by"):
             self.assertNotIn(text, rv)
@@ -213,6 +215,31 @@ class TestExtractComments(unittest.TestCase):
         md = self.md["every-skip"]
         self.assertEqual(len(comment_lines(md)), len(self.expected()) - 1)   # the bare highlight is gone
         self.assertIn("Check the year.", md)               # one with a comment stays
+
+
+class TestShiftedColumn(unittest.TestCase):
+    """Line numbers whose margin column moves between pages are all found."""
+
+    def test_column_per_page(self):
+        spec = importlib.util.spec_from_loader("ec", importlib.machinery.SourceFileLoader("ec", str(TOOL)))
+        ec = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ec)
+        doc = pymupdf.open()
+        n = 1
+        for right_edge in (60, 75, 60):          # page 2's numbers sit 15 pt further right
+            page = doc.new_page()
+            for i in range(20):
+                y = 100 + 20 * i
+                label = str(n)
+                width = pymupdf.get_text_length(label, fontsize=9)
+                page.insert_text((right_edge - width, y), label, fontsize=9)
+                page.insert_text((100, y), "Body text on this line.", fontsize=9)
+                n += 1
+        debug = []
+        pages = ec.margin_numbers(doc, debug)
+        self.assertEqual(sorted(pages), [1, 2, 3], debug)
+        self.assertEqual([len(v) for v in pages.values()], [20, 20, 20])
+        self.assertEqual(ec.line_at(pages[2], 100 + 20 * 5), 26)
 
 
 if __name__ == "__main__":

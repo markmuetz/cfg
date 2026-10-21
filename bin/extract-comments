@@ -17,18 +17,21 @@ carry no text.
 
 Each comment is located by manuscript line number when the PDF has them: the
 column of rising numbers in the margin is found and every comment is placed
-against it ("l.45-46"), interpolating when only every 5th line is numbered.
+against it ("L45–46"), interpolating when only every 5th line is numbered.
 Without line numbers, comments are located by page only.
 
 With --review it also writes <name>_review.md, a skeleton referee report:
 Summary and Recommendation (for you to write), then Major comments, Minor
-comments and Technical corrections, each a numbered list of
-'L.45: "<marked text>" <comment>'. Start a comment with M:, m: or t: to put it
-in a section (untagged comments are minor). The text a strike-out deletes is
-quoted with its comment as the replacement ('"old" → new'), and an insertion
-reads 'insert "<text>"'; no other
-manuscript text goes in. Marks with no comment are listed at the end as
+comments and Technical corrections, each a numbered list of 'L45: <comment>'.
+Start a comment with M:, m: or t: to put it in a section (untagged comments
+are minor). The text a strike-out deletes is quoted with its comment as the
+replacement ('"old" → new'), and an insertion reads 'insert "<text>"'; no
+other manuscript text goes in. Marks with no comment are listed at the end as
 reminders.
+
+Comments with no line number are located by page ("p2"): they sit outside the
+numbered text (a margin, a figure), or no line numbers were found on the page.
+--debug-lines prints which, page by page (positions only, no text).
 
 Runs locally: nothing is sent anywhere.
 
@@ -92,32 +95,50 @@ class Comment:
 
 # --- margin line numbers -----------------------------------------------------
 
-def margin_numbers(doc):
+def rising(nums):
+    """How many steps go up by 1 to 10 (10 when every 10th line is numbered)."""
+    return sum(0 < b - a <= 10 for a, b in zip(nums, nums[1:]))
+
+
+def margin_numbers(doc, debug=None):
     """{page: [(y, number), ...]} for the manuscript line numbers, or {}.
 
-    Line numbers are right-aligned in one margin column: many small integers
-    sharing a right edge, rising down the document. Both margins are tried.
+    Line numbers are right-aligned in one margin column: small integers
+    sharing a right edge, rising down the page. The column is found page by
+    page, since it can shift between pages (mirrored margins, numbers stamped
+    by a submission system). Both margins are tried. `debug`, a list, collects
+    a line per page saying what was found (positions and counts only).
     """
     hits = []                  # (side, right edge, page, y centre, number)
     for pno, page in enumerate(doc, 1):
         w = page.rect.width
         for x0, y0, x1, y1, word, *_ in page.get_text("words"):
             if re.fullmatch(r"\d{1,5}", word):
-                side = "left" if x1 < 0.2 * w else "right" if x0 > 0.8 * w else None
+                side = "left" if x1 < 0.25 * w else "right" if x0 > 0.75 * w else None
                 if side:
                     hits.append((side, round(x1), pno, (y0 + y1) / 2, int(word)))
-    best = {}
+    best, best_log = {}, []
     for side in ("left", "right"):
-        cols = Counter(h[1] for h in hits if h[0] == side)
-        if not cols:
-            continue
-        col = cols.most_common(1)[0][0]
-        sel = sorted((h for h in hits if h[0] == side and abs(h[1] - col) <= 2),
-                     key=lambda h: (h[2], h[3]))
-        nums = [h[4] for h in sel]
-        rising = sum(0 < b - a <= 10 for a, b in zip(nums, nums[1:]))
-        if len(nums) >= 10 and rising >= 0.8 * (len(nums) - 1) and len(nums) > len(best.get("sel", [])):
-            best = {"sel": sel}
+        sel, log = [], []
+        for pno in range(1, len(doc) + 1):
+            ph = [h for h in hits if h[0] == side and h[2] == pno]
+            cols = Counter(h[1] for h in ph)
+            if not cols:
+                log.append(f"page {pno}: {side}: no numbers in the margin")
+                continue
+            col = cols.most_common(1)[0][0]
+            col_hits = sorted((h for h in ph if abs(h[1] - col) <= 2), key=lambda h: h[3])
+            nums = [h[4] for h in col_hits]
+            ok = len(nums) >= 3 and rising(nums) >= 0.8 * (len(nums) - 1)
+            log.append(f"page {pno}: {side} column at x={col}: {len(nums)} numbers"
+                       + (f" ({nums[0]}–{nums[-1]})" if nums else "")
+                       + ("" if ok else ", rejected (too few, or not rising)"))
+            if ok:
+                sel += col_hits
+        if len(sel) >= 10 and len(sel) > len(best.get("sel", [])):
+            best, best_log = {"sel": sel}, log
+    if debug is not None:
+        debug.extend(best_log or ["no column of rising line numbers found"])
     pages = {}
     for _, _, pno, y, n in best.get("sel", []):
         pages.setdefault(pno, []).append((y, n))
@@ -200,9 +221,9 @@ def page_words(page):
                        for r, t in boxes)]
 
 
-def extract(path, drawings=False):
+def extract(path, drawings=False, debug=None):
     doc = pymupdf.open(path)
-    numbers = margin_numbers(doc)
+    numbers = margin_numbers(doc, debug)
     comments = []
     for pno, page in enumerate(doc, 1):
         words = page_words(page)
@@ -242,16 +263,20 @@ def extract(path, drawings=False):
         first, last = line_at(pts, c.y0), line_at(pts, c.y1)
         if first:
             c.lines = (first, last or first)
+        elif debug is not None:
+            span = f"numbered lines at y={pts[0][0]:.0f}–{pts[-1][0]:.0f}" if pts else "no line numbers on this page"
+            debug.append(f"page {c.page}: {c.kind} at y={c.y0:.0f}–{c.y1:.0f}: no line ({span})")
     return top, bool(numbers), len(comments)
 
 
 # --- output ------------------------------------------------------------------
 
 def where(c):
+    """'L45', 'L45–46', or 'p3' where there is no line number."""
     if not c.lines:
-        return f"p.{c.page}"
+        return f"p{c.page}"
     a, b = c.lines
-    return f"l.{a}" if a == b else f"l.{a}–{b}"
+    return f"L{a}" if a == b else f"L{a}–{b}"
 
 
 def byline(c):
@@ -343,11 +368,6 @@ def section_of(text):
     return kind, text[m.end():]
 
 
-def review_where(c):
-    """'L.45', 'L.45–46', or 'p.3' where there is no line number."""
-    return where(c).replace("l.", "L.", 1)
-
-
 def review_text(c, text):
     """'"deleted text" → new text', 'insert "text"', or the comment alone; later
     lines of a multi-line comment are indented under it."""
@@ -392,7 +412,7 @@ def to_review(path, top, numbered):
             out.append("_None._\n")
             continue
         for i, (c, text) in enumerate(items[key], 1):
-            out.append(f"{i}. {review_where(c)}: {review_text(c, text)}")
+            out.append(f"{i}. {where(c)}: {review_text(c, text)}")
             for r in c.replies:
                 if r.text or r.quoted:
                     who = f" ({r.author})" if r.author else ""
@@ -403,7 +423,7 @@ def to_review(path, top, numbered):
         out.append("## Marks without a comment (reminders; not part of the review)\n")
         for c in bare:
             quote = f' "{c.quoted}"' if c.quoted else ""
-            out.append(f"- {review_where(c)}: {c.kind.lower()}{quote}")
+            out.append(f"- {where(c)}: {c.kind.lower()}{quote}")
             for r in c.replies:
                 if r.text or r.quoted:
                     out.append(f"  - {r.kind.lower()}: {review_text(r, r.text)}")
@@ -424,11 +444,17 @@ def main():
                     help="include freehand drawings (pen strokes), left out by default")
     ap.add_argument("--skip-bare", action="store_true",
                     help="leave out highlights and other marks that have no comment text")
+    ap.add_argument("--debug-lines", action="store_true",
+                    help="explain the line numbering: per page, the margin column found, and "
+                         "why any comment has no line number (positions only, no text)")
     ap.add_argument("--review", action="store_true",
                     help="also write <name>_review.md, a skeleton review from the comments "
                          "(tag them M:, m: or t: for major, minor, technical)")
     args = ap.parse_args()
-    top, numbered, total = extract(args.file, args.drawings)
+    debug = [] if args.debug_lines else None
+    top, numbered, total = extract(args.file, args.drawings, debug)
+    if debug is not None:
+        print("\n".join(debug), file=sys.stderr)
     md = to_markdown(args.file, top, numbered, total, args.skip_bare)
     args.out.mkdir(parents=True, exist_ok=True)
     dest = args.out / f"{args.file.stem}_comments.md"
