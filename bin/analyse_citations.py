@@ -28,13 +28,19 @@ manuscript.pdf it writes
 
 and prints the report. Line-numbered review manuscripts are detected
 automatically and everything is located by manuscript line number. It
-understands author-year styles (AMS, AGU, APA, Harvard), not numbered ones. The
-parsing is heuristic: treat every flag as "look at this", not as a verdict.
+understands author-year styles (AMS, AGU, APA, Harvard) and numbered ones
+(Nature and similar: "[1]", "[2, 3]", "[4–6, 8]" against a numbered list),
+detecting which from the reference list (--style to override). For numbered
+styles the author and year checks are replaced by: numbers with no entry,
+malformed brackets (reversed ranges, numbers out of order or repeated), and
+references first cited out of numerical order. The parsing is heuristic: treat
+every flag as "look at this", not as a verdict.
 
 Usage:
     analyse-citations manuscript.pdf                 # writes ./manuscript_*.{md,bib,tsv}
     analyse-citations manuscript.pdf -o review/      # write them in review/ instead
     analyse-citations manuscript.txt                 # text you extracted yourself
+    analyse-citations manuscript.pdf --style numbered   # if detection gets it wrong
 
     # Which cited papers do I already have? Adds an "In library" column and a
     # "To fetch" list (DOI, else key, else author + year + title similarity).
@@ -75,6 +81,8 @@ gained the written report, the BibTeX list, citation counts and "hereafter"
 abbreviations; --library and --fetch added so that the most-cited papers
 missing from MM's library can be opened for download without the reference
 list ever leaving the machine. Used for reviewing and marking dissertations.
+Numbered (Nature-style) citations added 2026-10-21 for a Nature Portfolio
+review, tested on an invented fixture only.
 """
 import argparse
 import bisect
@@ -191,6 +199,8 @@ class Ref:
     title: str = ""
     doi: str = ""
     library: str = ""    # key of the matching entry in --library, if any
+    num: int = 0         # the entry's number, in a numbered reference list
+    fields: dict = None  # BibTeX fields, when parsed with the entry (numbered styles)
 
     @property
     def n(self):
@@ -198,6 +208,7 @@ class Ref:
 
     def label(self, width=100):
         t = self.text if len(self.text) <= width else self.text[:width] + "…"
+        t = f"[{self.num}] {t}" if self.num else t
         return f"{where(self.page, self.lineno):>7}  {t}"
 
     def short(self):
@@ -208,7 +219,8 @@ class Ref:
             a = f"{self.first} and {self.surnames[1]}"
         else:
             a = self.first
-        return f"{a} {self.year}{self.suffix}"
+        s = f"{a} {self.year}{self.suffix}"
+        return f"[{self.num}] {s}" if self.num else s
 
 
 @dataclass
@@ -224,12 +236,16 @@ class Cite:
     end: int = 0
     alias: str = ""  # set when this is a use of an abbreviation such as "C13"
     ref: object = None
+    num: int = 0     # numbered styles: the reference number cited
+    written: str = ""    # numbered styles: the bracket as written, "[4–6, 8]"
 
     @property
     def first(self):
         return self.names[0]
 
     def label(self):
+        if self.written:
+            return f"[{self.num}]" if self.num else self.written
         if self.etal:
             a = ", ".join(self.names) + " et al."
         elif len(self.names) > 1:
@@ -259,13 +275,14 @@ class Analysis:
     aliases: list
     unlinked: list   # abbreviations with no citation just before them: [(alias, Line)]
     library: str = ""    # the --library directory, if one was checked
+    numbered: bool = False
 
     def to_fetch(self):
         """Cited references missing from the library, most cited first."""
         if not self.library:
             return []
-        return sorted((r for r in self.refs if r.year and r.cited and not r.library),
-                      key=lambda r: (-len(r.cited), norm(r.first), r.year))
+        return sorted((r for r in self.refs if (r.year or r.num) and r.cited and not r.library),
+                      key=lambda r: (-len(r.cited), r.num, norm(r.first), r.year))
 
 
 # --- text extraction -------------------------------------------------------
@@ -538,6 +555,195 @@ def find_aliases(cites, lines, text, starts):
     return aliases, unlinked
 
 
+# --- numbered styles -------------------------------------------------------
+#
+# Nature and similar: "[1]", "[2, 3]", "[4–6, 8]" in the text, against a list
+# numbered "1." or "[1]", entries like "Schär, C. et al. Title. Bull. Am.
+# Meteorol. Soc. 101, E567–E587 (2020)." References are numbered in order of
+# first citation.
+
+# "12. ", "[12] ", "12 " (the last only when it is the next number).
+NUM_START_RE = re.compile(r"^\s*\[?(\d{1,4})(?:[.\])]\s*|\s+)(?=\S|$)")
+NUM_RANGE = r"\d{1,4}(?:\s*[\u2013\u2014-]\s*\d{1,4})?"
+NUM_CITE_RE = re.compile(rf"\[\s*({NUM_RANGE}(?:\s*[,;]\s*{NUM_RANGE})*)\s*\]")
+# "C.", "J. S.", "J.-L.", "J-L." (hyphens may be Unicode)
+NAT_INITS = r"(?:[A-Z][a-z]?(?:\.|(?=[-\u2010\u2011]))\s*[-\u2010\u2011]?\s*)+"
+NAT_AUTHOR = rf"[^\W\d_][^,&]*?,\s*{NAT_INITS}"
+NAT_AUTHORS_RE = re.compile(
+    rf"^(?P<authors>{NAT_AUTHOR}(?:\s*,\s*{NAT_AUTHOR})*(?:\s*,?\s*&\s*{NAT_AUTHOR})?)"
+    r"(?P<etal>\s*et al\.)?\s*")
+# "(2020)", "(Cambridge Univ. Press, 2021)"
+NAT_YEAR_RE = re.compile(r"\((?:[^()]*,\s*)?((?:1[89]|20)\d\d)([a-z]?)\)")
+
+
+def nature_fields(rest):
+    """BibTeX fields from what follows the authors: "Title. Journal 101,
+    E567–E587 (2020). doi…". Heuristic."""
+    f = {}
+    d = DOI_RE.search(rest)
+    if d:
+        f["doi"] = d.group(1).rstrip(".,;)")
+        rest = rest[:d.start()]
+    rest = re.sub(r"\s*,?\s*https?://\S+", "", rest).strip(" .,")
+    v = NAT_VENUE_RE.search(rest)
+    if v:
+        end = rest[v.start()]
+        f["title"] = rest[:v.start()].strip() + (end if end in "?!" else "")
+        f["journal"] = v.group("journal").strip()
+        f["volume"] = v.group("volume")
+        if v.group("number"):
+            f["number"] = v.group("number")
+        if v.group("pages"):
+            f["pages"] = re.sub(r"\s*[\u2013\u2014-]+\s*", "--", v.group("pages"))
+        return f
+    t = re.match(r"(?P<title>.+?[.?!])\s+(?=[A-Z(])", rest)
+    f["title"] = t.group("title").rstrip(".") if t else rest
+    note = NAT_YEAR_RE.sub("", rest[t.end():]).strip(" .") if t else ""
+    if note:
+        f["note"] = note
+    return f
+
+
+def parse_numbered_ref(ref, prev):
+    """Nature style first; then an author-year entry that has been numbered
+    ("Riehl, H., and J. S. Malkus, 1958: ..."); then the first word and the
+    last year, so that at least the number can be matched."""
+    text = ref.text
+    m = NAT_AUTHORS_RE.match(text)
+    years = NAT_YEAR_RE.findall(text)
+    if m and years:
+        ref.authors = m.group("authors").strip() + (" et al." if m.group("etal") else "")
+        ref.year, ref.suffix = years[-1]
+        ref.surnames = [s.strip(" ,&") for s in re.findall(rf"([^,&]+?),\s*{NAT_INITS}",
+                                                           m.group("authors"))]
+        ref.first = ref.surnames[0]
+        ref.etal = bool(m.group("etal")) or len(ref.surnames) > 2
+        ref.fields = nature_fields(text[m.end():])
+        return ref
+    parse_ref(ref, prev)
+    if ref.year:
+        return ref
+    years = REF_YEAR_RE.findall(text)
+    if years:
+        ref.year, ref.suffix = years[-1]
+    ref.first = ref.authors = re.split(r"[,.]", text)[0].strip()
+    ref.surnames = [ref.first] if ref.first else []
+    return ref
+
+
+def numbered_entries(lines):
+    """[[number, first Line, text]]: an entry starts at the next number in
+    sequence, so a wrapped line starting with a volume or a year stays put.
+    Text before the first number gets number 0."""
+    entries = []
+    for line in lines:
+        m = NUM_START_RE.match(line.text)
+        n = int(m.group(1)) if m else 0
+        want = entries[-1][0] + 1 if entries and entries[-1][0] else None
+        if m and n >= 1 and (want is None or n == want):
+            entries.append([n, line, line.text[m.end():]])
+        elif entries:
+            t = entries[-1][2]
+            entries[-1][2] = ((t[:-1] if t.endswith("-") and line.text[:1].islower()
+                               else t + " ") + line.text).strip()
+        else:
+            entries.append([0, line, line.text])
+    return entries
+
+
+def looks_numbered(ref_lines):
+    """True if the reference list is numbered 1, 2, 3, ... rather than
+    starting each entry with a surname."""
+    nums = sum(1 for n, _, _ in numbered_entries(ref_lines) if n)
+    named = sum(1 for l in ref_lines if REF_START_RE.match(l.text))
+    return nums >= 3 and nums >= named
+
+
+def parse_numbered_refs(lines):
+    refs, prev = [], None
+    for i, (n, line, text) in enumerate(numbered_entries(lines)):
+        ref = Ref(i, text, line.page, line.lineno, num=n)
+        if n:
+            parse_numbered_ref(ref, prev)
+            if ref.year:
+                prev = ref
+        refs.append(ref)
+    return refs
+
+
+def compact(nums):
+    """[3, 4, 5, 7] -> '3–5, 7'."""
+    out, nums = [], sorted(nums)
+    for n in nums:
+        if out and n == out[-1][1] + 1:
+            out[-1][1] = n
+        else:
+            out.append([n, n])
+    return ", ".join(f"{a}" if a == b else f"{a}–{b}" for a, b in out)
+
+
+def find_numbered_cites(lines):
+    """Return (cites, bracket problems). One Cite per number: "[4–6, 8]" is
+    four citations. A bracket containing 0 is an interval, not a citation."""
+    text, starts = join_lines(lines)
+    cites, bad = [], []
+    for m in NUM_CITE_RE.finditer(text):
+        line = lines[bisect.bisect_right(starts, m.start()) - 1]
+        ctx = text[max(0, m.start() - 60):m.end() + 25]
+        written = re.sub(r"\s+", " ", m.group(0))
+        nums, problems, last = [], [], 0
+        for part in re.split(r"\s*[,;]\s*", m.group(1).strip()):
+            lo, hi = re.fullmatch(r"(\d+)(?:\s*[\u2013\u2014-]\s*(\d+))?", part).groups()
+            a, b = int(lo), int(hi or lo)
+            if b < a:
+                problems.append(f"reversed range {a}–{b}")
+                a, b = b, a
+            if a <= last:
+                problems.append(f"{part} out of order or repeated")
+            nums.extend(range(a, b + 1))
+            last = b
+        if 0 in nums:
+            continue
+        for n in dict.fromkeys(nums):
+            cites.append(Cite([], False, "", "", line.page, line.lineno, ctx,
+                              m.start(), m.end(), num=n, written=written))
+        if problems:
+            bad.append((Cite([], False, "", "", line.page, line.lineno, ctx, m.start(), m.end(),
+                             written=written), "; ".join(problems)))
+    return cites, bad
+
+
+def check_numbered(cites, refs, bad, in_text):
+    """Match citations to entries by number; return the problems found.
+    `in_text` are the citations in the body, used for the order check."""
+    issues = defaultdict(list)
+    by_num = {r.num: r for r in refs if r.num}
+    top = max(by_num, default=0)
+    seen = set()
+    for c in cites:
+        r = by_num.get(c.num)
+        if r:
+            r.cited.append(c)
+            c.ref = r
+        elif c.num not in seen:
+            issues["missing"].append((c, f"no entry [{c.num}]: the list runs to [{top}]"))
+        seen.add(c.num)
+    issues["brackets"] = bad
+    # Numbered in order of first citation: flag a first citation that jumps
+    # ahead of numbers not yet cited (only the jump, not what follows it).
+    first, high = set(), 0
+    for c in sorted(in_text, key=lambda c: c.pos):
+        if c.num in first or c.num not in by_num:     # a missing number is flagged above
+            continue
+        first.add(c.num)
+        if c.num > high + 1:
+            skipped = [n for n in range(high + 1, c.num) if n not in first and n in by_num]
+            if skipped:
+                issues["order"].append((c, f"first cited before [{compact(skipped)}]"))
+        high = max(high, c.num)
+    return issues
+
+
 # --- matching --------------------------------------------------------------
 
 def levenshtein(a, b):
@@ -692,7 +898,10 @@ def suggest(c, refs):
 def duplicates(refs):
     keyed = defaultdict(list)
     for r in refs:
-        if r.year:
+        if r.num:
+            # Numbered lists rarely repeat an author's name style; compare works.
+            keyed[r.doi.lower() or (norm(r.first), r.year, plain_title(r.title))].append(r)
+        elif r.year:
             keyed[(norm(r.first), r.year, r.suffix, r.etal, tuple(map(norm, r.surnames)))].append(r)
     return [rs for rs in keyed.values() if len(rs) > 1]
 
@@ -717,6 +926,12 @@ VENUE_RE = re.compile(
     rf"[.,?!]\s+(?P<journal>{JWORD}(?:\s+{JWORD})*),\s*(?P<volume>\d{{1,4}})"
     r"(?:\s*\((?P<number>[^)]{1,12})\))?"
     r"(?:,\s*(?P<pages>[A-Za-z]{0,3}\d+[A-Za-z0-9]*(?:\s*[\u2013\u2014-]+\s*[A-Za-z]{0,3}\d+)?))?")
+# Nature: "…title. Bull. Am. Meteorol. Soc. 101, E567–E587 (2020)".
+NAT_VENUE_RE = re.compile(
+    rf"[.?!]\s+(?P<journal>{JWORD}(?:\s+{JWORD})*)\s+(?P<volume>\d{{1,4}})"
+    r"(?:\s*\((?P<number>[^)]{1,12})\))?"
+    r"(?:,\s*(?P<pages>[A-Za-z]{0,3}\d+[A-Za-z0-9]*(?:\s*[\u2013\u2014-]+\s*[A-Za-z]{0,3}\d+)?))?"
+    r"\s*\((?:1[89]|20)\d\d[a-z]?\)")
 
 
 SICI_RE = re.compile(r"^10\.1175/(\d{4})-?(\d{3}[\dX])\((\d{4})\)(\d{3})[,<]?(\d{4}):"
@@ -832,9 +1047,9 @@ def to_bibtex(refs):
     """Return the parsed references as BibTeX, setting each Ref.key."""
     used, out = set(), []
     for r in refs:
-        if not r.year:
+        if not (r.year or r.num and r.first):
             continue
-        f = bib_fields(r)
+        f = r.fields or bib_fields(r)
         r.key = bib_key(r, f["title"], used)
         r.title, r.doi = f["title"], f.get("doi", "")
         fields = [("author", bib_persons(r.authors)), ("title", bib_escape(f["title"])),
@@ -907,7 +1122,7 @@ def match_library(refs, entries):
                     for c in cands), default=None, key=lambda t: (t[0], -len(t[1])))
 
     for r in refs:
-        if not r.year:
+        if not (r.year or r.key):
             continue
         title = plain_title(r.title)
         # A supplement or preprint can share its paper's DOI: take the entry
@@ -930,25 +1145,33 @@ def md(s):
 def report(a):
     out = []
     p = out.append
-    parsed = [r for r in a.refs if r.year]
+    parsed = [r for r in a.refs if (r.num and r.first if a.numbered else r.year)]
     cited_refs = [r for r in parsed if r.cited]
     uncited = [r for r in parsed if not r.cited]
-    unparsed = [r for r in a.refs if not r.year]
+    unparsed = [r for r in a.refs if r not in parsed]
     dups = duplicates(a.refs)
     p(f"# Citation analysis: {md(a.path.name)}\n")
     p(f"Read as: {a.source}. Generated {date.today().isoformat()} by analyse-citations. "
       "Every flag is a lead to check, not a verdict.\n")
     p("| | count |\n|---|---:|")
+    style_rows = ([
+        ("First cited out of numerical order", len(a.issues["order"])),
+        ("Malformed citation brackets", len(a.issues["brackets"])),
+    ] if a.numbered else [
+        ("Name spelt differently", len(a.issues["spelling"])),
+        ("Year letter mismatch", len(a.issues["suffix"])),
+        ("Author mismatch", len(a.issues["authors"])),
+    ])
     for k, v in [
-        ("In-text citations", len(a.cites)),
+        ("In-text citations" + (" (one per number)" if a.numbered else ""), len(a.cites)),
+    ] + ([] if a.numbered else [
         ("… uses of an abbreviation (e.g. “C13”)", sum(len(x.uses) for x in a.aliases)),
+    ]) + [
         ("… matched to a reference", sum(1 for c in a.cites if c.ref)),
         ("Reference entries", len(a.refs)),
         ("… cited at least once", len(cited_refs)),
         ("Cited but not in references", len(a.issues["missing"])),
-        ("Name spelt differently", len(a.issues["spelling"])),
-        ("Year letter mismatch", len(a.issues["suffix"])),
-        ("Author mismatch", len(a.issues["authors"])),
+    ] + style_rows + [
         ("In references but never cited", len(uncited)),
         ("Possible duplicate references", len(dups)),
         ("Reference entries not parsed", len(unparsed)),
@@ -977,13 +1200,23 @@ def report(a):
 
     section("Cited but not in references", len(a.issues["missing"]))
     cite_items(a.issues["missing"])
-    section("Name spelt differently from the reference", len(a.issues["spelling"]))
-    cite_items(a.issues["spelling"])
-    section("Year letter mismatch", len(a.issues["suffix"]))
-    cite_items(a.issues["suffix"])
-    section("Author mismatch", len(a.issues["authors"]),
-            "Author count or a co-author differs. AMS style uses et al. for 3+ authors.")
-    cite_items(a.issues["authors"])
+    if a.numbered:
+        section("First cited out of numerical order", len(a.issues["order"]),
+                "Nature-style lists are numbered in order of first citation. Only the "
+                "first citation that jumps ahead is listed. Citations in figure captions "
+                "or tables after the reference list are not checked.")
+        cite_items(a.issues["order"])
+        section("Malformed citation brackets", len(a.issues["brackets"]),
+                "Reversed ranges, or numbers not in ascending order or repeated.")
+        cite_items(a.issues["brackets"])
+    else:
+        section("Name spelt differently from the reference", len(a.issues["spelling"]))
+        cite_items(a.issues["spelling"])
+        section("Year letter mismatch", len(a.issues["suffix"]))
+        cite_items(a.issues["suffix"])
+        section("Author mismatch", len(a.issues["authors"]),
+                "Author count or a co-author differs. AMS style uses et al. for 3+ authors.")
+        cite_items(a.issues["authors"])
     section("In references but never cited", len(uncited))
     ref_items(uncited)
     section("Possible duplicate references", len(dups))
@@ -991,9 +1224,30 @@ def report(a):
         p("- " + "  \n  ".join(f"**{where(r.page, r.lineno)}** {md(r.text)}" for r in rs))
     p("")
     section("Reference entries not parsed", len(unparsed),
-            "No year found: a wrapped line, a heading or a malformed entry. Check by hand.")
+            ("No number or first author found" if a.numbered else "No year found") +
+            ": a wrapped line, a heading or a malformed entry. Check by hand.")
     ref_items(unparsed)
 
+    if not a.numbered:
+        abbreviations(a, p, section)
+
+    section("Citation counts", len(cited_refs),
+            "Times each reference is cited in the text"
+            + ("" if a.numbered else ", including uses of abbreviations") +
+            ". Uncited references are listed above.")
+    lib = " In library |" if a.library else ""
+    p(f"| Cited | Reference | Key |{lib} Where |\n|---:|---|---|{'---|' if lib else ''}---|")
+    for r in sorted(cited_refs, key=lambda r: (-len(r.cited), r.num, norm(r.first), r.year)):
+        at = places(r.cited)
+        more = f" … (+{len(at) - 12})" if len(at) > 12 else ""
+        held = f" {r.library or '—'} |" if a.library else ""
+        p(f"| {len(r.cited)} | {md(r.short())} | {r.key} |{held} {', '.join(at[:12])}{more} |")
+    p("")
+    to_fetch_section(a, p, section)
+    return "\n".join(out)
+
+
+def abbreviations(a, p, section):
     section("Abbreviated citations", len(a.aliases) + len(a.unlinked),
             "Abbreviations defined with “hereafter”. Each later use counts as a citation.")
     if a.aliases:
@@ -1009,18 +1263,8 @@ def report(a):
     if a.unlinked:
         p("")
 
-    section("Citation counts", len(cited_refs),
-            "Times each reference is cited in the text, including uses of abbreviations. "
-            "Uncited references are listed above.")
-    lib = " In library |" if a.library else ""
-    p(f"| Cited | Reference | Key |{lib} Where |\n|---:|---|---|{'---|' if lib else ''}---|")
-    for r in sorted(cited_refs, key=lambda r: (-len(r.cited), norm(r.first), r.year)):
-        at = places(r.cited)
-        more = f" … (+{len(at) - 12})" if len(at) > 12 else ""
-        held = f" {r.library or '—'} |" if a.library else ""
-        p(f"| {len(r.cited)} | {md(r.short())} | {r.key} |{held} {', '.join(at[:12])}{more} |")
-    p("")
 
+def to_fetch_section(a, p, section):
     if a.library:
         fetch = a.to_fetch()
         section("To fetch", len(fetch),
@@ -1032,7 +1276,6 @@ def report(a):
             doi = f"[{md(r.doi)}]({doi_url(r.doi)})" if r.doi else "none: search by title"
             p(f"| {len(r.cited)} | {md(r.short())} | {md(title)} | {doi} |")
         p("")
-    return "\n".join(out)
 
 
 def citations_tsv(a):
@@ -1045,23 +1288,33 @@ def citations_tsv(a):
 
 # --- driver ----------------------------------------------------------------
 
-def run(path, line_numbers="auto", library=None):
+def run(path, line_numbers="auto", library=None, style="auto"):
     path = Path(path)
     lines, source = load(path, line_numbers)
     body, ref_lines, trailing = split_sections(lines)
-    refs = parse_refs(ref_lines)
-    cites, text, starts = find_cites(body)
-    aliases, unlinked = find_aliases(cites, body, text, starts)
-    # Tables and figure captions after the reference list cite papers too.
-    cites += find_cites(trailing)[0]
-    for x in aliases:
-        cites += x.uses
-    issues = check(cites, refs)
+    numbered = style == "numbered" or (style == "auto" and looks_numbered(ref_lines))
+    if numbered:
+        refs = parse_numbered_refs(ref_lines)
+        cites, bad = find_numbered_cites(body)
+        more, more_bad = find_numbered_cites(trailing)
+        issues = check_numbered(cites + more, refs, bad + more_bad, in_text=cites)
+        cites += more
+        aliases, unlinked = [], []
+    else:
+        refs = parse_refs(ref_lines)
+        cites, text, starts = find_cites(body)
+        aliases, unlinked = find_aliases(cites, body, text, starts)
+        # Tables and figure captions after the reference list cite papers too.
+        cites += find_cites(trailing)[0]
+        for x in aliases:
+            cites += x.uses
+        issues = check(cites, refs)
+    source += ", numbered citations" if numbered else ", author-year citations"
     to_bibtex(refs)        # sets the keys, titles and DOIs used below
     if library:
         match_library(refs, load_library(library))
     return Analysis(path, source, cites, refs, issues, aliases, unlinked,
-                    str(library) if library else "")
+                    str(library) if library else "", numbered)
 
 
 def open_dois(a, n):
@@ -1099,6 +1352,10 @@ def main():
                     help="output directory (default: the current one)")
     ap.add_argument("--line-numbers", choices=["auto", "yes", "no"], default="auto",
                     help="line-numbered manuscript? (default: detect)")
+    ap.add_argument("--style", choices=["auto", "author-year", "numbered"], default="auto",
+                    help="citation style: author-year (AMS, AGU, APA) or numbered "
+                         "(Nature: [1], [2, 3], [4-6, 8]) (default: detect from the "
+                         "reference list)")
     ap.add_argument("-q", "--quiet", action="store_true", help="do not print the report")
     ap.add_argument("--library", metavar="DIR", default=os.environ.get("ANALYSE_CITATIONS_LIBRARY"),
                     help="directory of .bib files (e.g. ~/LitManData/literature) to check "
@@ -1110,7 +1367,7 @@ def main():
     args = ap.parse_args()
     if args.fetch and not args.library:
         ap.error("--fetch needs --library, to know what you already have")
-    a = run(args.file, args.line_numbers, args.library)
+    a = run(args.file, args.line_numbers, args.library, args.style)
     rep = write(a, args.out)
     if not args.quiet:
         print(rep)

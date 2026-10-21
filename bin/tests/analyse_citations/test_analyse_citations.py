@@ -200,5 +200,77 @@ class TestUnicode(unittest.TestCase):
         self.assertIn("typo, or a different paper", msg)
 
 
+class TestNumbered(unittest.TestCase):
+    """Nature-style numbered citations, on an invented text."""
+
+    BODY = [
+        "Deep convection organises into large systems [1]. Several studies [2, 3]",
+        "and others [4–6, 8] describe this, as does a later one [7]. A reversed",
+        "range [6-4] and a missing entry [12] are planted. The interval [0, 1] is",
+        "not a citation, and [9] is cited once.",
+    ]
+    REFS = [
+        "1. Alder, A. B., Birch, C. & Cedar, D. Storms over the sea. J. Atmos. Sci. 80,",
+        "101–120 (2023).",
+        "2. Dogwood, E. et al. A census of storms. Geophys. Res. Lett. 49, e2022GL1 (2022).",
+        "3. Elm, F. & Fir, G. Organised convection. Q. J. R. Meteorol. Soc. 147, 1–20 (2021).",
+        "4. Hazel, H. Clouds and Rain (Example Press, 2019).",
+        "5. Ivy, I. Cold pools. Mon. Weather Rev. 150, 5–9 (2022).",
+        "6. Juniper, J. Anvils. J. Clim. 35, 1–2 (2022). https://doi.org/10.1175/JCLI-D-00-0000.1",
+        "7. Kauri, K. Shear and storms. J. Atmos. Sci. 81, 3–4 (2024).",
+        "8. Larch, L. Tracking. Geosci. Model Dev. 16, 7–8 (2023).",
+        "9. Maple, M. Rain rates. Atmos. Res. 300, 9–10 (2024).",
+        "10. Neem, N. Never cited. Tellus A 70, 1–3 (2018).",
+    ]
+
+    def run_text(self, style="auto"):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "m.txt"
+            path.write_text("\n".join(self.BODY + ["References"] + self.REFS) + "\n")
+            return ac.run(path, style=style)
+
+    def test_detected_and_checked(self):
+        a = self.run_text()
+        self.assertTrue(a.numbered)
+        self.assertIn("numbered citations", a.source)
+        self.assertEqual([r.num for r in a.refs], list(range(1, 11)))
+        self.assertEqual({c.num for c, _ in a.issues["missing"]}, {12})
+        (c, msg), = a.issues["order"]          # [8] comes before [7]
+        self.assertEqual((c.num, msg), (8, "first cited before [7]"))
+        (c, msg), = a.issues["brackets"]
+        self.assertEqual(c.label(), "[6-4]")
+        self.assertIn("reversed range", msg)
+        uncited = [r.num for r in a.refs if not r.cited]
+        self.assertEqual(uncited, [10])
+        self.assertEqual(len(a.refs[3].cited), 2)       # [4–6, 8] and [6-4]
+        self.assertFalse(any(c.num == 0 for c in a.cites))
+
+    def test_entries_parsed(self):
+        a = self.run_text()
+        r1, r2, r3, r4 = a.refs[:4]
+        self.assertEqual((r1.first, r1.surnames, r1.year), ("Alder", ["Alder", "Birch", "Cedar"], "2023"))
+        self.assertTrue(r2.etal)
+        self.assertEqual(r3.surnames, ["Elm", "Fir"])
+        self.assertEqual(r4.year, "2019")              # "(Example Press, 2019)"
+        bib = ac.to_bibtex(a.refs)
+        alder = bib[bib.index("@article{alder2023storms,"):]
+        alder = alder[:alder.index("\n}")]
+        for field in ("author = {Alder, A. B. and Birch, C. and Cedar, D.}",
+                      "title = {Storms over the sea}", "journal = {J. Atmos. Sci.}",
+                      "volume = {80}", "pages = {101--120}", "citedcount = {1}"):
+            self.assertIn(field, alder)
+        self.assertIn("doi = {10.1175/JCLI-D-00-0000.1}", bib)
+        report = ac.report(a)
+        self.assertIn("| First cited out of numerical order | 1 |", report)
+        self.assertNotIn("Year letter mismatch", report)
+
+    def test_author_year_lists_are_not_numbered(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "m.txt"
+            path.write_text("As in Smith (2019) [1].\nReferences\n"
+                            "Smith, J., 2019: Title. J. Climate, 32, 1-20.\n")
+            self.assertFalse(ac.run(path).numbered)
+
+
 if __name__ == "__main__":
     unittest.main()
