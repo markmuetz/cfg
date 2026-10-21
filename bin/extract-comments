@@ -25,7 +25,8 @@ Summary and Recommendation (for you to write), then Major comments, Minor
 comments and Technical corrections, each a numbered list of
 'L.45: "<marked text>" <comment>'. Start a comment with M:, m: or t: to put it
 in a section (untagged comments are minor). The text a strike-out deletes is
-quoted in double quotes, and an insertion reads 'insert "<text>"'; no other
+quoted with its comment as the replacement ('"old" → new'), and an insertion
+reads 'insert "<text>"'; no other
 manuscript text goes in. Marks with no comment are listed at the end as
 reminders.
 
@@ -233,6 +234,8 @@ def extract(path, drawings=False):
     for c in comments:
         parent = by_xref.get(c.irt)
         (parent.replies if parent else top).append(c)
+    for c in top:
+        merge_replacement(c)
     top.sort(key=lambda c: (c.page, round(c.y0), c.x0))
     for c in top + [r for c in top for r in c.replies]:
         pts = numbers.get(c.page, [])
@@ -260,15 +263,36 @@ def block(text, indent):
     return "\n".join(f"{indent}{line}" if line.strip() else indent.rstrip() for line in text.split("\n"))
 
 
+def merge_replacement(c):
+    """Acrobat's "Replace text" is a strike-out and an insertion, one replying
+    to the other: make them one strike-out whose text is the replacement."""
+    other = "Insert" if c.kind == "Strike-out" else "Strike-out" if c.kind == "Insert" else None
+    pair = next((r for r in c.replies if r.kind == other), None)
+    if not pair:
+        return
+    strike, ins = (c, pair) if c.kind == "Strike-out" else (pair, c)
+    if strike.text and ins.text:
+        return                 # a strike-out with its own comment: keep both
+    c.kind, c.quoted, c.text = "Strike-out", strike.quoted, strike.text or ins.text
+    c.replies.remove(pair)
+
+
+def arrow(c, text):
+    """'"deleted text" → replacement'; '(delete)' when there is none."""
+    return f'"{c.quoted}" \u2192 {text or "(delete)"}'
+
+
 def body(c, indent):
-    """A comment's quoted deletion and its text; an insertion's text is what
-    it inserts, so it is quoted too."""
-    out = []
-    if c.quoted:
-        out.append(block("> " + c.quoted, indent))
+    """A comment's text. A strike-out reads '"old" → new' (its comment is the
+    new text; a tag such as "t:" stays in front); an insertion's text is what
+    it inserts, so it is quoted."""
+    if c.kind == "Strike-out":
+        m = TAG_RE.match(c.text)
+        tag, text = (m.group(0), c.text[m.end():]) if m else ("", c.text)
+        return [block(tag + arrow(c, text), indent)]
     if c.text:
-        out.append(block("> " + c.text if c.kind == "Insert" else c.text, indent))
-    return out
+        return [block("> " + c.text if c.kind == "Insert" else c.text, indent)]
+    return []
 
 
 def to_markdown(path, top, numbered, total, skip_bare=False):
@@ -288,7 +312,7 @@ def to_markdown(path, top, numbered, total, skip_bare=False):
         out.append(f"- **{where(c)}** {c.kind}{byline(c)}")
         out.extend(body(c, "  "))
         for r in c.replies:
-            # Acrobat's "Replace text" is a strike-out and an insertion, one replying to the other.
+            # A strike-out or insertion replying to another one keeps its own label.
             out.append(f"  - {'Reply' if r.kind in ('Note', 'Text box') else r.kind}{byline(r)}")
             out.extend(body(r, "    "))
         out.append("")
@@ -325,20 +349,21 @@ def review_where(c):
 
 
 def review_text(c, text):
-    """'"deleted text" comment', 'insert "text"', or the comment alone; later
+    """'"deleted text" → new text', 'insert "text"', or the comment alone; later
     lines of a multi-line comment are indented under it."""
     if c.kind == "Insert":
         text = f'insert "{text}"'
+    elif c.kind == "Strike-out":
+        text = arrow(c, text)
     first, *rest = (text or "(no text)").split("\n")
-    quote = f'"{c.quoted}" ' if c.quoted else ""
-    return "\n".join([quote + first] + [f"   {line}" for line in rest])
+    return "\n".join([first] + [f"   {line}" for line in rest])
 
 
 def to_review(path, top, numbered):
     """A skeleton review in the usual form, from the comments alone.
 
-    Each item is the reviewer's comment, after the text a strike-out deletes
-    in double quotes; an insertion reads 'insert "<text>"'. No other
+    Each item is the reviewer's comment; a strike-out reads '"<deleted
+    text>" → <its comment>', and an insertion 'insert "<text>"'. No other
     manuscript text goes in. Marks with no comment are listed at the end as
     reminders.
     """

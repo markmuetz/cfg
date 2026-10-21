@@ -59,6 +59,16 @@ def annotate(pdf):
     ins.set_info(content="t: The")
     ins.update()
 
+    # Acrobat's "Replace text": a strike-out, and an insertion replying to it.
+    old = p1.search_for("future changes")[0]
+    rs = p1.add_strikeout_annot(old)
+    rs.set_info(title="Referee 1")
+    rs.update()
+    ri = p1.add_caret_annot(pymupdf.Point(old.x1, (old.y0 + old.y1) / 2))
+    ri.set_info(content="t: projected changes", title="Referee 1")
+    ri.set_irt_xref(rs.xref)
+    ri.update()
+
     bare = p1.add_highlight_annot(p1.search_for("Elsaesser et al. (2022)")[0])
     bare.update()
 
@@ -112,7 +122,7 @@ class TestExtractComments(unittest.TestCase):
         layout = subprocess.run(["pdftotext", "-layout", str(d / "every.pdf"), "-"],
                                 capture_output=True, text=True).stdout
         cls.at = {}
-        for phrase in ("Zipser (1977)", "Houze (1989, 2018)", "Land and ocean differ", "Cold pools organise",
+        for phrase in ("Zipser (1977)", "Houze (1989, 2018)", "Land and ocean differ", "future changes", "Cold pools organise",
                        "(hereafter RCEMIP)", "Elsaesser et al. (2022)", "Mapes, B. E."):
             line = next(l for l in layout.split("\n") if phrase in l)
             cls.at[phrase] = int(line.split()[0])
@@ -138,6 +148,7 @@ class TestExtractComments(unittest.TestCase):
             (f"l.{at['Houze (1989, 2018)']}", "Note", "Referee 1"),
             (f"l.{at['Land and ocean differ']}", "Insert", ""),
             (f"l.{at['Elsaesser et al. (2022)']}", "Highlight", ""),
+            (f"l.{at['future changes']}", "Strike-out", "Referee 1"),
             (f"l.{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}", "Strike-out", "Referee 1"),
             (f"l.{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}", "Highlight", ""),
             (f"l.{at['Mapes, B. E.']}", "Text box", ""),
@@ -154,9 +165,12 @@ class TestExtractComments(unittest.TestCase):
         self.assertIn("  Check the year.\n  - Reply — *Author", md)
         self.assertIn("    Checked: fine.", md)
         self.assertIn("  M: Is 1989 in the list?\n  Second line.", md)
-        self.assertIn("> Cold pools organise (hereafter RCEMIP)", md)   # strike-out: quoted
+        # Strike-outs: '"old" → new', the tag in front; a Replace-text pair is one item.
+        self.assertIn('  t: "Cold pools organise (hereafter RCEMIP)" \u2192 Rephrase.', md)
+        self.assertIn('  t: "future changes" \u2192 projected changes', md)
+        self.assertNotIn("- Insert", md.split("future changes")[1].split("\n\n")[0])
         self.assertIn("  > t: The", md)                                 # insertion: quoted
-        self.assertIn("8 comments and 1 reply", md)
+        self.assertIn("9 comments and 1 reply", md)
         self.assertEqual(md.count("- Reply"), 1)            # nested, not listed twice
         # No other manuscript text: not what highlights mark, nor what notes sit beside.
         for text in ("Zipser (1977)", "is not a citation", "Elsaesser", "Mapes, B. E.",
@@ -178,8 +192,9 @@ class TestExtractComments(unittest.TestCase):
         get = lambda title: next(x for x in sections if x.startswith(title))
         major, minor, tech = get("Major comments"), get("Minor comments"), get("Technical corrections")
         self.assertIn(f"1. L.{at['Houze (1989, 2018)']}: Is 1989 in the list?\n   Second line.", major)
-        self.assertIn(f"2. L.{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}: "
-                      '"Cold pools organise (hereafter RCEMIP)" Rephrase.', tech)
+        self.assertIn(f'2. L.{at["future changes"]}: "future changes" \u2192 projected changes', tech)
+        self.assertIn(f"3. L.{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}: "
+                      '"Cold pools organise (hereafter RCEMIP)" \u2192 Rephrase.', tech)
         # Untagged comments are minor, in document order; replies follow their item.
         self.assertIn(f'1. L.{at["Land and ocean differ"]}: insert "The"', tech)
         self.assertEqual(re.findall(r"^\d+\. (\S+): (.*)$", minor, re.M), [
