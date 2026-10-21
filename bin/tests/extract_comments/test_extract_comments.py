@@ -8,7 +8,7 @@
 Reuses analyse-citations' fixture manuscript, typeset with every line, every
 5th line and no lines numbered; annotates it with PyMuPDF; checks that each
 comment is found with its text, reply and manuscript line numbers, and that
-only strike-outs and insertions quote text.
+only strike-outs, insertions and short marks (up to five words) quote text.
 Needs pdflatex. Run: ~/bin/tests/extract_comments/test_extract_comments.py
 """
 import importlib.machinery
@@ -80,6 +80,11 @@ def annotate(pdf):
     hy.set_info(content="Hyphenated.")
     hy.update()
 
+    # A long highlight (eight words): located, not quoted.
+    lh = p1.add_highlight_annot(p1.search_for("10 km grid spacing is used in all simulations")[0])
+    lh.set_info(content="Which model?")
+    lh.update()
+
     # Freehand pen strokes (an iPad drawing): left out unless --drawings.
     ink = p1.add_ink_annot([[(400, 300), (420, 305), (440, 300)]])
     ink.update()
@@ -125,7 +130,7 @@ class TestExtractComments(unittest.TestCase):
                                 capture_output=True, text=True).stdout
         cls.at = {}
         for phrase in ("Zipser (1977)", "Houze (1989, 2018)", "Land and ocean differ", "future changes", "Cold pools organise",
-                       "(hereafter RCEMIP)", "Elsaesser et al. (2022)", "Mapes, B. E."):
+                       "(hereafter RCEMIP)", "Elsaesser et al. (2022)", "10 km grid spacing", "Mapes, B. E."):
             line = next(l for l in layout.split("\n") if phrase in l)
             cls.at[phrase] = int(line.split()[0])
         for name in BUILDS:
@@ -151,6 +156,7 @@ class TestExtractComments(unittest.TestCase):
             (f"L{at['Land and ocean differ']}", "Insert", ""),
             (f"L{at['Elsaesser et al. (2022)']}", "Highlight", ""),
             (f"L{at['future changes']}", "Strike-out", "Referee 1"),
+            (f"L{at['10 km grid spacing']}", "Highlight", ""),
             (f"L{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}", "Strike-out", "Referee 1"),
             (f"L{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}", "Highlight", ""),
             (f"L{at['Mapes, B. E.']}", "Text box", ""),
@@ -164,7 +170,9 @@ class TestExtractComments(unittest.TestCase):
 
     def test_text_quote_and_reply(self):
         md = self.md["every"]
-        self.assertIn("  Check the year.\n  - Reply — *Author", md)
+        self.assertIn("  > Zipser (1977)\n  Check the year.\n  - Reply — *Author", md)
+        self.assertIn("  > is not a citation\n  Hyphenated.", md)   # short: quoted
+        self.assertIn("  > Elsaesser et al. (2022)\n", md)
         self.assertIn("    Checked: fine.", md)
         self.assertIn("  M: Is 1989 in the list?\n  Second line.", md)
         # Strike-outs: '"old" → new', the tag in front; a Replace-text pair is one item.
@@ -172,11 +180,10 @@ class TestExtractComments(unittest.TestCase):
         self.assertIn('  t: "future changes" \u2192 projected changes', md)
         self.assertNotIn("- Insert", md.split("future changes")[1].split("\n\n")[0])
         self.assertIn("  > t: The", md)                                 # insertion: quoted
-        self.assertIn("9 comments and 1 reply", md)
+        self.assertIn("10 comments and 1 reply", md)
         self.assertEqual(md.count("- Reply"), 1)            # nested, not listed twice
         # No other manuscript text: not what highlights mark, nor what notes sit beside.
-        for text in ("Zipser (1977)", "is not a citation", "Elsaesser", "Mapes, B. E.",
-                     "near:", "Houze (1989"):
+        for text in ("grid spacing", "Mapes, B. E.", "near:", "Houze (1989"):
             self.assertNotIn(text, md)
 
     def test_no_line_numbers(self):
@@ -201,14 +208,17 @@ class TestExtractComments(unittest.TestCase):
         self.assertIn(f'1. L{at["Land and ocean differ"]}: insert "The"', tech)
         self.assertEqual(re.findall(r"^\d+\. (\S+): (.*)$", minor, re.M), [
             ("p1", "A general comment in the top margin."),
-            (f"L{at['Zipser (1977)']}", "Check the year."),
-            (f"L{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}", "Hyphenated."),
+            (f"L{at['Zipser (1977)']}", '"Zipser (1977)" Check the year.'),
+            (f"L{at['10 km grid spacing']}", "Which model?"),
+            (f"L{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}",
+             '"is not a citation" Hyphenated.'),
             (f"L{at['Mapes, B. E.']}", "Never cited?"),
         ])
         self.assertIn("   - Reply (Author): Checked: fine.", minor)
-        self.assertIn(f'- L{at["Elsaesser et al. (2022)"]}: highlight\n', get("Marks without"))
-        # Only deleted and inserted text is quoted.
-        for text in ("Zipser (1977)", "is not a citation", "Elsaesser", "near:", "described by"):
+        self.assertIn(f'- L{at["Elsaesser et al. (2022)"]}: highlight "Elsaesser et al. (2022)"',
+                      get("Marks without"))
+        # Long marks and nearby text are not quoted.
+        for text in ("grid spacing", "near:", "described by"):
             self.assertNotIn(text, rv)
 
     def test_skip_bare(self):

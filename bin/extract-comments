@@ -8,9 +8,10 @@
 Every annotation is included: sticky notes, text boxes, highlights,
 underlines, strike-outs, insertion marks and drawings, with the author, the
 date and any replies, which are nested under the comment they answer. Comments
-are grouped by page in reading order. Manuscript text is quoted only for
-corrections: the text a strike-out deletes, and the text an insertion mark
-adds. Every other comment is located by line number alone, with your comment
+are grouped by page in reading order. Manuscript text is quoted for
+corrections (the text a strike-out deletes, and the text an insertion mark
+adds) and for short marks: a highlight, underline or squiggle of up to five
+words. Every other comment is located by line number alone, with your comment
 text but none of the text it marks or sits beside. Freehand drawings (pen
 strokes, e.g. from an iPad) are left out unless --drawings is given: they
 carry no text.
@@ -25,8 +26,8 @@ Summary and Recommendation (for you to write), then Major comments, Minor
 comments and Technical corrections, each a numbered list of 'L45: <comment>'.
 Start a comment with M:, m: or t: to put it in a section (untagged comments
 are minor). The text a strike-out deletes is quoted with its comment as the
-replacement ('"old" → new'), and an insertion reads 'insert "<text>"'; no
-other manuscript text goes in. Marks with no comment are listed at the end as
+replacement ('"old" → new'), an insertion reads 'insert "<text>"', and a
+short highlight 'L45: "<text>" <comment>'; no other manuscript text goes in. Marks with no comment are listed at the end as
 reminders.
 
 Comments with no line number are located by page ("p2"): they sit outside the
@@ -52,7 +53,8 @@ Muetzelfeldt, alongside analyse-citations, whose margin line-number detection
 it follows. Tested on a line-numbered LaTeX fixture annotated with PyMuPDF.
 2026-10-21: at MM's request, only strike-outs and insertions quote text;
 highlights and the "near" text of notes and boxes were dropped, so that a
-report built from the output carries only line numbers and MM's own words.
+report built from the output carries only line numbers and MM's own words;
+then short marks (up to five words) quoted again, also at MM's request.
 """
 import argparse
 import re
@@ -67,7 +69,8 @@ import pymupdf
 
 SKIP = {"Link", "Widget", "Popup"}
 MARKUP = {"Highlight", "Underline", "StrikeOut", "Squiggly"}
-QUOTED = {"StrikeOut"}         # the only marks whose text is quoted
+QUOTED = {"StrikeOut"}         # marks whose text is always quoted
+SHORT_QUOTE = 5                # other text marks are quoted up to this many words
 KIND = {"Text": "Note", "FreeText": "Text box", "Highlight": "Highlight",
         "Underline": "Underline", "StrikeOut": "Strike-out", "Squiggly": "Squiggly",
         "Caret": "Insert", "Ink": "Drawing", "Square": "Box", "Circle": "Circle",
@@ -197,6 +200,15 @@ def quoted_text(page, annot, words):
     return join_words(sorted(hit, key=lambda w: (w[5], w[6], w[7])))
 
 
+def quote_for(kind, page, annot, words):
+    """The text a mark quotes: always for a strike-out; for a highlight,
+    underline or squiggle only when it is short (up to SHORT_QUOTE words)."""
+    if kind not in MARKUP:
+        return ""
+    q = quoted_text(page, annot, words)
+    return q if kind in QUOTED or len(q.split()) <= SHORT_QUOTE else ""
+
+
 def join_words(words):
     """Join words, undoing hyphenation at line ends: "comprehen-" + "sive"
     -> "comprehensive"; "IM-" + "ERG" keeps its hyphen ("IM-ERG")."""
@@ -247,7 +259,7 @@ def extract(path, drawings=False, debug=None):
             c = Comment(pno, KIND.get(kind, kind), min(ya, yb), max(ya, yb), r.x0,
                         info.get("title", "").strip(), when(info),
                         (info.get("content") or "").strip(),
-                        quoted_text(page, annot, words) if kind in QUOTED else "",
+                        quote_for(kind, page, annot, words),
                         annot.xref, getattr(annot, "irt_xref", 0) or 0, (r.x0, r.y0, r.x1, r.y1))
             comments.append(c)
     by_xref = {c.xref: c for c in comments}
@@ -315,9 +327,10 @@ def body(c, indent):
         m = TAG_RE.match(c.text)
         tag, text = (m.group(0), c.text[m.end():]) if m else ("", c.text)
         return [block(tag + arrow(c, text), indent)]
+    out = [block("> " + c.quoted, indent)] if c.quoted else []
     if c.text:
-        return [block("> " + c.text if c.kind == "Insert" else c.text, indent)]
-    return []
+        out.append(block("> " + c.text if c.kind == "Insert" else c.text, indent))
+    return out
 
 
 def to_markdown(path, top, numbered, total, skip_bare=False):
@@ -375,6 +388,8 @@ def review_text(c, text):
         text = f'insert "{text}"'
     elif c.kind == "Strike-out":
         text = arrow(c, text)
+    elif c.quoted:
+        text = f'"{c.quoted}" {text}'.strip()
     first, *rest = (text or "(no text)").split("\n")
     return "\n".join([first] + [f"   {line}" for line in rest])
 
