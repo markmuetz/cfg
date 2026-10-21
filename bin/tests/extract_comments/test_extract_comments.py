@@ -7,7 +7,8 @@
 
 Reuses analyse-citations' fixture manuscript, typeset with every line, every
 5th line and no lines numbered; annotates it with PyMuPDF; checks that each
-comment is found with its text, quote, reply and manuscript line numbers.
+comment is found with its text, reply and manuscript line numbers, and that
+only strike-outs and insertions quote text.
 Needs pdflatex. Run: ~/bin/tests/extract_comments/test_extract_comments.py
 """
 import re
@@ -51,6 +52,12 @@ def annotate(pdf):
     s = p1.add_strikeout_annot(quads=[pymupdf.Rect(a[0]).quad, pymupdf.Rect(b[0]).quad])
     s.set_info(content="t: Rephrase.", title="Referee 1")
     s.update()
+
+    # An insertion mark: its text is what it inserts.
+    r = p1.search_for("Land and ocean differ")[0]
+    ins = p1.add_caret_annot(pymupdf.Point(r.x0, (r.y0 + r.y1) / 2))
+    ins.set_info(content="t: The")
+    ins.update()
 
     bare = p1.add_highlight_annot(p1.search_for("Elsaesser et al. (2022)")[0])
     bare.update()
@@ -105,7 +112,7 @@ class TestExtractComments(unittest.TestCase):
         layout = subprocess.run(["pdftotext", "-layout", str(d / "every.pdf"), "-"],
                                 capture_output=True, text=True).stdout
         cls.at = {}
-        for phrase in ("Zipser (1977)", "Houze (1989, 2018)", "Cold pools organise",
+        for phrase in ("Zipser (1977)", "Houze (1989, 2018)", "Land and ocean differ", "Cold pools organise",
                        "(hereafter RCEMIP)", "Elsaesser et al. (2022)", "Mapes, B. E."):
             line = next(l for l in layout.split("\n") if phrase in l)
             cls.at[phrase] = int(line.split()[0])
@@ -129,6 +136,7 @@ class TestExtractComments(unittest.TestCase):
             ("p.1", "Note", ""),                                   # top margin: no line
             (f"l.{at['Zipser (1977)']}", "Highlight", "Referee 1"),
             (f"l.{at['Houze (1989, 2018)']}", "Note", "Referee 1"),
+            (f"l.{at['Land and ocean differ']}", "Insert", ""),
             (f"l.{at['Elsaesser et al. (2022)']}", "Highlight", ""),
             (f"l.{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}", "Strike-out", "Referee 1"),
             (f"l.{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}", "Highlight", ""),
@@ -143,14 +151,17 @@ class TestExtractComments(unittest.TestCase):
 
     def test_text_quote_and_reply(self):
         md = self.md["every"]
-        self.assertIn("  > Zipser (1977)\n  Check the year.\n  - Reply — *Author", md)
+        self.assertIn("  Check the year.\n  - Reply — *Author", md)
         self.assertIn("    Checked: fine.", md)
         self.assertIn("  M: Is 1989 in the list?\n  Second line.", md)
-        self.assertIn("> Cold pools organise (hereafter RCEMIP)", md)
-        self.assertIn("7 comments and 1 reply", md)
-        self.assertIn("> is not a citation\n  Hyphenated.", md)   # the mark stops before "."
+        self.assertIn("> Cold pools organise (hereafter RCEMIP)", md)   # strike-out: quoted
+        self.assertIn("  > t: The", md)                                 # insertion: quoted
+        self.assertIn("8 comments and 1 reply", md)
         self.assertEqual(md.count("- Reply"), 1)            # nested, not listed twice
-        self.assertIn("*near:* \u201cMapes, B. E., 1993", md)   # not the box's own text
+        # No other manuscript text: not what highlights mark, nor what notes sit beside.
+        for text in ("Zipser (1977)", "is not a citation", "Elsaesser", "Mapes, B. E.",
+                     "near:", "Houze (1989"):
+            self.assertNotIn(text, md)
 
     def test_no_line_numbers(self):
         md = self.md["plain"]
@@ -167,27 +178,26 @@ class TestExtractComments(unittest.TestCase):
         get = lambda title: next(x for x in sections if x.startswith(title))
         major, minor, tech = get("Major comments"), get("Minor comments"), get("Technical corrections")
         self.assertIn(f"1. L.{at['Houze (1989, 2018)']}: Is 1989 in the list?\n   Second line.", major)
-        self.assertIn(f"1. L.{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}: "
+        self.assertIn(f"2. L.{at['Cold pools organise']}–{at['(hereafter RCEMIP)']}: "
                       '"Cold pools organise (hereafter RCEMIP)" Rephrase.', tech)
         # Untagged comments are minor, in document order; replies follow their item.
+        self.assertIn(f'1. L.{at["Land and ocean differ"]}: insert "The"', tech)
         self.assertEqual(re.findall(r"^\d+\. (\S+): (.*)$", minor, re.M), [
             ("p.1", "A general comment in the top margin."),
-            (f"L.{at['Zipser (1977)']}", '"Zipser (1977)" Check the year.'),
-            (f"L.{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}",
-             '"is not a citation" Hyphenated.'),
+            (f"L.{at['Zipser (1977)']}", "Check the year."),
+            (f"L.{at['(hereafter RCEMIP)']}–{at['(hereafter RCEMIP)'] + 1}", "Hyphenated."),
             (f"L.{at['Mapes, B. E.']}", "Never cited?"),
         ])
         self.assertIn("   - Reply (Author): Checked: fine.", minor)
-        self.assertIn(f'- L.{at["Elsaesser et al. (2022)"]}: highlight "Elsaesser et al. (2022)"',
-                      get("Marks without"))
-        # Marked text is quoted; the nearby lines of notes and text boxes are not.
-        self.assertNotIn("near:", rv)
-        self.assertNotIn("described by", rv)
+        self.assertIn(f'- L.{at["Elsaesser et al. (2022)"]}: highlight\n', get("Marks without"))
+        # Only deleted and inserted text is quoted.
+        for text in ("Zipser (1977)", "is not a citation", "Elsaesser", "near:", "described by"):
+            self.assertNotIn(text, rv)
 
     def test_skip_bare(self):
         md = self.md["every-skip"]
-        self.assertNotIn("Elsaesser", md)                  # the bare highlight is gone
-        self.assertIn("Zipser", md)                        # one with a comment stays
+        self.assertEqual(len(comment_lines(md)), len(self.expected()) - 1)   # the bare highlight is gone
+        self.assertIn("Check the year.", md)               # one with a comment stays
 
 
 if __name__ == "__main__":

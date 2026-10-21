@@ -6,12 +6,14 @@
 """Extract the comments (annotations) from a PDF into <name>_comments.md.
 
 Every annotation is included: sticky notes, text boxes, highlights,
-underlines, strike-outs, insertion marks and drawings, with the text that a
-highlight (or underline, strike-out) marks, the author, the date and any
-replies, which are nested under the comment they answer. Comments are grouped
-by page in reading order. A comment that quotes no text gets the printed text
-under or beside it ("near: ..."). Freehand drawings (pen strokes, e.g. from an
-iPad) are left out unless --drawings is given: they carry no text.
+underlines, strike-outs, insertion marks and drawings, with the author, the
+date and any replies, which are nested under the comment they answer. Comments
+are grouped by page in reading order. Manuscript text is quoted only for
+corrections: the text a strike-out deletes, and the text an insertion mark
+adds. Every other comment is located by line number alone, with your comment
+text but none of the text it marks or sits beside. Freehand drawings (pen
+strokes, e.g. from an iPad) are left out unless --drawings is given: they
+carry no text.
 
 Each comment is located by manuscript line number when the PDF has them: the
 column of rising numbers in the margin is found and every comment is placed
@@ -22,9 +24,10 @@ With --review it also writes <name>_review.md, a skeleton referee report:
 Summary and Recommendation (for you to write), then Major comments, Minor
 comments and Technical corrections, each a numbered list of
 'L.45: "<marked text>" <comment>'. Start a comment with M:, m: or t: to put it
-in a section (untagged comments are minor). The text a highlight or strike-out
-marks is quoted in double quotes; no other manuscript text goes in. Marks with
-no comment are listed at the end as reminders.
+in a section (untagged comments are minor). The text a strike-out deletes is
+quoted in double quotes, and an insertion reads 'insert "<text>"'; no other
+manuscript text goes in. Marks with no comment are listed at the end as
+reminders.
 
 Runs locally: nothing is sent anywhere.
 
@@ -43,6 +46,9 @@ Provenance
 Written on 2026-09-25 by Claude (Claude Code, model Claude Opus 5.5) for Mark
 Muetzelfeldt, alongside analyse-citations, whose margin line-number detection
 it follows. Tested on a line-numbered LaTeX fixture annotated with PyMuPDF.
+2026-10-21: at MM's request, only strike-outs and insertions quote text;
+highlights and the "near" text of notes and boxes were dropped, so that a
+report built from the output carries only line numbers and MM's own words.
 """
 import argparse
 import re
@@ -57,6 +63,7 @@ import pymupdf
 
 SKIP = {"Link", "Widget", "Popup"}
 MARKUP = {"Highlight", "Underline", "StrikeOut", "Squiggly"}
+QUOTED = {"StrikeOut"}         # the only marks whose text is quoted
 KIND = {"Text": "Note", "FreeText": "Text box", "Highlight": "Highlight",
         "Underline": "Underline", "StrikeOut": "Strike-out", "Squiggly": "Squiggly",
         "Caret": "Insert", "Ink": "Drawing", "Square": "Box", "Circle": "Circle",
@@ -80,7 +87,6 @@ class Comment:
     rect: tuple = ()           # the annotation's (x0, y0, x1, y1)
     lines: tuple = None        # (first, last) manuscript line numbers
     replies: list = field(default_factory=list)
-    near: str = ""             # printed text under or beside it
 
 
 # --- margin line numbers -----------------------------------------------------
@@ -151,7 +157,7 @@ def when(info):
 
 
 def quoted_text(page, annot, words):
-    """The text a highlight, underline or strike-out marks: the whole words
+    """The text a strike-out (or other text markup) marks: the whole words
     whose centre lies in one of its quads (one quad per marked line), each
     word once, in reading order."""
     v = annot.vertices or []
@@ -219,7 +225,7 @@ def extract(path, drawings=False):
             c = Comment(pno, KIND.get(kind, kind), min(ya, yb), max(ya, yb), r.x0,
                         info.get("title", "").strip(), when(info),
                         (info.get("content") or "").strip(),
-                        quoted_text(page, annot, words) if kind in MARKUP else "",
+                        quoted_text(page, annot, words) if kind in QUOTED else "",
                         annot.xref, getattr(annot, "irt_xref", 0) or 0, (r.x0, r.y0, r.x1, r.y1))
             comments.append(c)
     by_xref = {c.xref: c for c in comments}
@@ -233,32 +239,7 @@ def extract(path, drawings=False):
         first, last = line_at(pts, c.y0), line_at(pts, c.y1)
         if first:
             c.lines = (first, last or first)
-        if not c.quoted:
-            c.near = near_text(doc[c.page - 1], c)
     return top, bool(numbers), len(comments)
-
-
-def clip(t, n=100):
-    t = re.sub(r"^\d{1,5}\s+", "", " ".join(t.split()))    # a margin line number
-    return t if len(t) <= n else t[:n].rsplit(" ", 1)[0] + "…"
-
-
-def near_text(page, c):
-    """The printed text a comment sits on: under a drawing or box, else the
-    text line level with it (an icon, a text box, marks in the margin)."""
-    words = page_words(page)
-    if c.kind not in ("Note", "Insert", "Text box"):
-        # Whole words the marks touch, in reading order (block, line, word).
-        r = pymupdf.Rect(c.rect)
-        under = sorted((w for w in words if pymupdf.Rect(w[:4]).intersects(r)),
-                       key=lambda w: (w[5], w[6], w[7]))
-        if under:
-            return clip(" ".join(w[4] for w in under))
-    yc = (c.y0 + c.y1) / 2
-    words = sorted((w for w in words
-                    if abs((w[1] + w[3]) / 2 - yc) < 6 and not re.fullmatch(r"\d{1,5}", w[4])),
-                   key=lambda w: w[0])
-    return clip(" ".join(w[4] for w in words))
 
 
 # --- output ------------------------------------------------------------------
@@ -279,6 +260,17 @@ def block(text, indent):
     return "\n".join(f"{indent}{line}" if line.strip() else indent.rstrip() for line in text.split("\n"))
 
 
+def body(c, indent):
+    """A comment's quoted deletion and its text; an insertion's text is what
+    it inserts, so it is quoted too."""
+    out = []
+    if c.quoted:
+        out.append(block("> " + c.quoted, indent))
+    if c.text:
+        out.append(block("> " + c.text if c.kind == "Insert" else c.text, indent))
+    return out
+
+
 def to_markdown(path, top, numbered, total, skip_bare=False):
     shown = [c for c in top if not (skip_bare and not c.text and not c.replies)]
     replies = sum(len(c.replies) for c in top)
@@ -294,16 +286,11 @@ def to_markdown(path, top, numbered, total, skip_bare=False):
             page = c.page
             out.append(f"## Page {page}\n")
         out.append(f"- **{where(c)}** {c.kind}{byline(c)}")
-        if c.near:
-            out.append(f"  *near:* \u201c{c.near}\u201d")
-        if c.quoted:
-            out.append(block("> " + c.quoted, "  "))
-        if c.text:
-            out.append(block(c.text, "  "))
+        out.extend(body(c, "  "))
         for r in c.replies:
-            out.append(f"  - Reply{byline(r)}")
-            if r.text:
-                out.append(block(r.text, "    "))
+            # Acrobat's "Replace text" is a strike-out and an insertion, one replying to the other.
+            out.append(f"  - {'Reply' if r.kind in ('Note', 'Text box') else r.kind}{byline(r)}")
+            out.extend(body(r, "    "))
         out.append("")
     return "\n".join(out)
 
@@ -337,12 +324,23 @@ def review_where(c):
     return where(c).replace("l.", "L.", 1)
 
 
+def review_text(c, text):
+    """'"deleted text" comment', 'insert "text"', or the comment alone; later
+    lines of a multi-line comment are indented under it."""
+    if c.kind == "Insert":
+        text = f'insert "{text}"'
+    first, *rest = (text or "(no text)").split("\n")
+    quote = f'"{c.quoted}" ' if c.quoted else ""
+    return "\n".join([quote + first] + [f"   {line}" for line in rest])
+
+
 def to_review(path, top, numbered):
     """A skeleton review in the usual form, from the comments alone.
 
-    Each item is the reviewer's comment, preceded by the text it marks (for a
-    highlight, underline or strike-out) in double quotes. Nearby lines ("near")
-    are left out. Marks with no comment are listed at the end as reminders.
+    Each item is the reviewer's comment, after the text a strike-out deletes
+    in double quotes; an insertion reads 'insert "<text>"'. No other
+    manuscript text goes in. Marks with no comment are listed at the end as
+    reminders.
     """
     items = {k: [] for k, _ in SECTIONS}
     bare = []
@@ -357,7 +355,7 @@ def to_review(path, top, numbered):
         items[kind].append((c, text))
     out = [f"# Review of {path.stem}\n",
            "<!-- Draft assembled by extract-comments --review from the comments in the "
-           "PDF: your comments, each after the text it marks in double quotes. Tag "
+           "PDF: your comments, located by line, with deleted and inserted text in double quotes. Tag "
            "comments M: (major), "
            "m: (minor) or t: (technical); untagged ones are minor. Write the summary "
            "and recommendation yourself, and expand any shorthand. -->\n",
@@ -369,20 +367,21 @@ def to_review(path, top, numbered):
             out.append("_None._\n")
             continue
         for i, (c, text) in enumerate(items[key], 1):
-            first, *rest = (text or "(no text)").split("\n")
-            quote = f'"{c.quoted}" ' if c.quoted else ""
-            out.append(f"{i}. {review_where(c)}: {quote}{first}")
-            out.extend(f"   {line}" for line in rest)
+            out.append(f"{i}. {review_where(c)}: {review_text(c, text)}")
             for r in c.replies:
-                if r.text:
+                if r.text or r.quoted:
                     who = f" ({r.author})" if r.author else ""
-                    out.append(block(f"- Reply{who}: {r.text}", "   "))
+                    label = "Reply" if r.kind in ("Note", "Text box") else r.kind
+                    out.append(block(f"- {label}{who}: {review_text(r, r.text)}", "   "))
         out.append("")
     if bare:
         out.append("## Marks without a comment (reminders; not part of the review)\n")
         for c in bare:
             quote = f' "{c.quoted}"' if c.quoted else ""
             out.append(f"- {review_where(c)}: {c.kind.lower()}{quote}")
+            for r in c.replies:
+                if r.text or r.quoted:
+                    out.append(f"  - {r.kind.lower()}: {review_text(r, r.text)}")
         out.append("")
     if not numbered:
         out.append("<!-- The PDF has no line numbers: items are located by page only. -->\n")
