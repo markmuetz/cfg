@@ -41,8 +41,10 @@ def main():
 
     infilenames = [p.name for p in fig_data.keys()]
     indups = [k for k, v in Counter(infilenames).items() if v > 1]
-    if indups:
-        raise Exception(f'There are duplicate input filenames: {indups}\nFilenames must be unique for copying to the raw/ output dir.')
+    # Duplicate input filenames (e.g. the same plot for two suites): keep full paths under raw/ (rsync -R).
+    relative = bool(indups)
+    if relative:
+        print(f'Duplicate input filenames {indups}: keeping full paths under raw/')
 
     outdups = [k for k, v in Counter(fig_data.values()).items() if v > 1]
     if outdups:
@@ -53,7 +55,7 @@ def main():
     else:
         remote_paths = ' '.join(str(p) for p in fig_data.keys()).strip()
     Path('raw').mkdir(parents=True, exist_ok=True)
-    cmd = f'rsync -av {REMOTE}{remote_paths} raw'
+    cmd = f'rsync -av{"R" if relative else ""} {REMOTE}{remote_paths} raw'
     try:
         print(cmd)
         ret = sysrun(cmd)
@@ -64,7 +66,10 @@ def main():
         print(cpe.stderr)
         return
 
-    rawpaths = [Path('raw') / fn for fn in infilenames]
+    if relative:
+        rawpaths = [Path('raw') / str(p).lstrip('/') for p in fig_data.keys()]
+    else:
+        rawpaths = [Path('raw') / fn for fn in infilenames]
     problems = [p for p in rawpaths if not p.exists()]
     if problems:
         raise Exception(f'Some files were not copied: {problems}')
